@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 /*
  * Host (Linux) stub implementation of hal.h for compile checks and desk
  * simulation: USB is a pair of named pipes, the radio UART is a pseudo
