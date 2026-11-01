@@ -73,6 +73,7 @@ flowchart LR
 | Battery | 2S1P 4 Ah Li-ion pouch | 9/12 V source with buck-boost efficiency, thin, 29.6 Wh. | 1S (boost from 3.7 V to 9 V at 2 A is lossy, hot); 2S2P 18650 (too thick for a phone-back pack). |
 | Audio | MCU ADC/DAC at 48 kHz, 8 kHz analog corners, firmware resampling to 16 kHz for voice | Voice needs only 16 kHz, but 48 kHz with a flat 6 kHz path keeps 9600 Bd modes, FreeDV (48 kHz modem) and the UAC sound-card profile possible. | 16 kHz only (cheaper filters, closes doors). |
 | Magnetic attachment | Qi2 MPP / MagSafe ring with orientation magnet | Snaps upright on any ring-equipped phone or case. | Clip-on case frame (kept as alternative). |
+| 2.4 / 5 GHz (under review, docs/15) | ESP32-C5 as a connectivity co-processor: BLE/Wi-Fi phone link (iOS without MFi, no cable for data), ESP-NOW long-range pack-to-pack | Proposed; footprint on the first board at minimum. | ESP32-C5 as main MCU (no USB OTG: loses the USB link and sound-card profile). |
 
 ## 2.3 Power budget
 

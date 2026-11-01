@@ -39,6 +39,8 @@ app. It also works alone, as a power bank and as a basic walkie-talkie.
 | `docs/12-data-and-aprs.md` | 1200 Bd AFSK, AX.25, APRS beacons, text messages, channel arbitration |
 | `docs/13-lora.md` | Two SX1262 modules, antenna sharing, LoRa-APRS, presets, duty limits |
 | `docs/14-digital-voice.md` | FreeDV 2400B / Codec2 through the FM path |
+| `docs/15-esp32-c5-option.md` | ESP32-C5 trade study: wireless phone link, 2.4/5 GHz pack-to-pack |
+| `docs/mobile-radio-design.pdf` | All chapters as one review PDF (`python3 tools/make_pdf.py`) |
 | `hardware/rf/filter_design.py` | LPF/BPF synthesis and lossy simulation (pure Python + numpy) |
 | `hardware/rf/antenna_calc.py` | Helix/IFA sizing, L-match, ERP and link budget |
 | `hardware/rf/results/` | Generated filter tables and antenna report |
