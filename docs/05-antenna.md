@@ -2,10 +2,10 @@
 
 Constraints: PMR446 requires an integral antenna (no user connector), ERP
 <= 500 mW, vertical polarisation in use (M2), and the antenna sits on a pack
-that is stuck to a phone with a magnet ring. The same helix now also serves
-the 70 cm amateur mode (430-440 MHz) and the 433 MHz LoRa module, so it is
-tuned to **439 MHz**, the geometric centre of 432.5 and 446.1 MHz. A second,
-printed antenna serves the 868 MHz LoRa module. Numbers below come from
+that is stuck to a phone with a magnet ring. The same helix also serves
+the 70 cm amateur mode (430-440 MHz), so it is tuned to **439 MHz**, the
+geometric centre of 432.5 and 446.1 MHz. It is the only antenna in the
+product. Numbers below come from
 `hardware/rf/antenna_calc.py report` (output saved in
 `hardware/rf/results/antenna_report.txt`).
 
@@ -67,18 +67,6 @@ Use the low-pass form (series L, shunt C) because it adds harmonic rejection.
 - The magnet ring (steel/NdFeB, ~56 mm diameter) is a large conductor in the
   near field: keep the element >= 20 mm away from it.
 
-## 5.3b 868 MHz printed inverted-F (LoRa 868)
-
-lambda/4 at 869.5 MHz is 86 mm, so a printed IFA fits comfortably in a
-40 x 8 mm keep-out at the top-right corner (`antenna_calc.py ifa --f 869e6
---width 40 --height 8`: ~78 mm conductor, 5 meanders at 8 mm pitch). Feed via
-a series 10 pF pad and a shunt inductor pad for tuning; shorting pin 4 mm
-from the feed. Keep it >= 30 mm from the helix base and >= 20 mm from the
-magnet ring; expected gain -3 to -5 dBi on the phone. ERP at +22 dBm
-conducted is then ~60-80 mW, far below the 500 mW allowed in 869.4-869.65
-MHz; the firmware's power cap for the 868 band is therefore not antenna
-critical.
-
 ## 5.4 ERP budget and power level selection
 
 ERP = P_conducted - front-end loss + antenna gain (dBd). Front-end loss is
@@ -95,7 +83,7 @@ stores the allowed power level per unit (`ANTENNA_GAIN_DBD_X10` in
 refuses the H setting when the stored gain would put ERP above 26.5 dBm
 (0.45 W, 0.5 dB margin for temperature and supply); in HAM mode 1 W is always
 allowed (`bandplan_high_power_allowed`). R2 is thereby met by construction.
-The same stored gain caps the 433 MHz LoRa power at 10 mW ERP in PMR/ISM mode.
+
 
 ## 5.5 Range expectation
 

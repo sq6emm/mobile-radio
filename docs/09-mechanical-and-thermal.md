@@ -7,9 +7,9 @@
 | Body | 160 x 76 x 14 mm, PC/ABS shell, TPU bumper edge |
 | Antenna | 60 mm stub at the top-left corner, 8 mm boot diameter, flexible TPU over the helix |
 | Mass | ~190 g (cells 2 x 65 g, PCB/shell/magnets ~60 g) |
-| Attachment | magnet ring to the phone back (9.2) + 100 mm USB-C to USB-C cable (USB 2.0, 3 A) from the pack's bottom-edge port to the phone's port; cable clips into a groove along the pack edge |
+| Attachment | magnet ring to the phone back (9.2) + 100 mm USB-C to USB-C cable (USB 2.0, 3 A) from the pack's PHONE port to the phone's port; cable clips into a groove along the pack edge |
 | Controls | PTT button (side, 12 x 6 mm, tactile under TPU), power/pair button, 2 LEDs (battery, TX/RX), speaker grille, mic port |
-| Ports | USB-C receptacle on the bottom edge, centred, so the cable runs straight down to the phone's port |
+| Ports | two USB-C receptacles on the bottom edge, 22 mm apart: **PHONE** (right of centre, cable runs straight down to the phone's port) and **CHARGE** (left), both labelled in the moulding and by LED colour; the charger cable hangs below the phone while in use |
 
 ## 9.2 Magnetic attachment: Qi2 MPP / MagSafe-compatible ring
 
@@ -60,7 +60,7 @@ magnet ring (1.2 mm) + steel shunt (0.3 mm), potted in the shell face
 cells 2 x 60 x 70 x 6 mm, side by side, foam pads
 PCB 4-layer 1.2 mm, 150 x 68 mm, components facing outwards
   RF area (top-left 40 x 30 mm) with shield can 4 mm high
-  power area (bottom, under the USB-C port) with shield can
+  power area (bottom, between the two USB-C ports: TPS25751, STUSB4500, BQ25798, TPS55288) with shield can
   MCU/audio middle
 outer shell 1.0 mm with speaker grille and buttons
 ```
@@ -74,16 +74,20 @@ pad and under the charger.
 | Source | Dissipation | Condition |
 |--------|-------------|-----------|
 | SA818 at 1 W RF | ~2 W (3.0 W in, 1 W out) | TX, 10 % duty -> 0.2 W average; 180 s continuous allowed |
-| BQ25798 sourcing 18 W | ~1.0 W | continuous while charging the phone |
+| BQ25798 charging at 20 W from a 45 W charger | ~1.0 W | pass-through |
+| TPS55288 sourcing 18 W to the phone | ~1.1 W | continuous while charging the phone |
 | TPS62130 at 0.8 A | ~0.15 W | TX |
 | LDOs | ~0.25 W | |
 | Cells at 2.5 A discharge, 60 mOhm | ~0.4 W | sourcing |
 
-Worst realistic case: 18 W sourcing plus 10 % TX = ~2.0 W average over a
-160 x 76 mm shell = about 6 W/m^2 per side... in practice about 8-10 C above
-ambient for the shell in free air; stacked on a phone one side is insulated,
-so expect ~12-15 C rise at the warmest spot, below the 45 C limit (M3) up to
-30 C ambient. The 180 s TX time-out limits the module's spike to ~2 W x 180 s
+Worst realistic case is pass-through: 45 W in, 18 W out, 20 W into the
+cells, plus 10 % TX, about 3.5 W dissipated in a 160 x 76 mm pack. In free
+air that is roughly 15 C above ambient at the shell; stacked on a phone one
+side is insulated, so expect 18-22 C at the warmest spot over the power
+section. That exceeds the 45 C target (M3) above about 25 C ambient, which is
+why the firmware throttles the battery charge current at 50 C board
+temperature (to 60 %) and 60 C (to 25 %) before touching the phone's supply.
+Without a charger (18 W out only) the rise is 8-10 C as before. The 180 s TX time-out limits the module's spike to ~2 W x 180 s
 = 360 J, heating the RF area about 10 C transiently. Firmware throttles
 source current at 60 C board temperature and inhibits TX at 70 C PA
 temperature.

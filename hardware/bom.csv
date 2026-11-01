@@ -1,32 +1,31 @@
 ref,qty,part,value_or_type,package,function,alternative,notes
 U1,1,STM32F405RGT6,ARM Cortex-M4 168 MHz USB FS 2xDAC,LQFP-64,MCU,STM32F407VGT6,TinyUSB vendor + CDC + UAC
-U2,1,TPS25751D,USB-C PD3.0 DRP controller I2C,VQFN-32,USB-PD,FUSB302B + MCU PD stack,Try.SRC; EEPROM/I2C configured
-U3,1,BQ25798,1-4S buck-boost charger with OTG,QFN-29,charger / power path,BQ25792,2S 8.4 V 2 A charge; OTG 5/9/12 V
+U2,1,TPS25751D,USB-C PD3.0 DRP controller I2C,VQFN-32,PHONE port PD + data role,FUSB302B + MCU PD stack,Try.SRC; EEPROM/I2C configured; source path FETs Q2
+U3,1,BQ25798,1-4S buck-boost charger dual input (VAC1 PHONE / VAC2 CHARGE),QFN-29,charger (sink only),BQ25792,2S 8.4 V 2 A charge; ACFET/RBFET pairs Q3/Q4
+U19,1,TPS55288,36 W buck-boost I2C 0.8-22 V out,QFN-19,PHONE port source converter 5/9/12 V,TPS55289,fed from VSYS; enabled on source contract
+U20,1,STUSB4500,USB-C PD sink controller NVM I2C,QFN-24,CHARGE port sink (power only),TPS25750 sink config,requests up to 20 V / 2.25 A
+U21,1,BQ29209,2S cell balancer,SOT-23-6,battery balancing,,
+J3,1,USB4105-GF-A (GCT),USB-C 16-pin receptacle mid-mount,SMD,CHARGE port (VBUS + CC only),,"D+/D- not connected; 22 mm from J1"
+"Q3,Q4",2,dual N-FET back-to-back 30 V 6 A,,PowerPAK 1212-8 dual,BQ25798 input paths VAC1 / VAC2,,
 U4,1,BQ34Z100-G1,multi-cell fuel gauge I2C,TSSOP-14,gauge,firmware coulomb count on BQ25798 ADC,5 mOhm sense
 U5,1,S-8252AAx (Seiko),2S Li-ion protector,SOT-23-6,primary protection,Nisshinbo R5478,with dual N-FET Q1
 U6,1,BQ7718,secondary over-voltage protector,SOT-23,secondary protection,,drives chemical fuse F1
-U7,1,TPS62130,3 A sync buck adjustable 2.5 MHz,QFN-16,+4V0 radio rail,TPS62133 / TPS62913,forced PWM; LC post-filter
-U8,1,TPS7A2033,300 mA low-noise LDO 3.3 V,SOT-23-5,+3V3D,,from +4V0
+U7,1,TPS62130,3 A sync buck adjustable 2.5 MHz,QFN-16,+4V2 radio rail,TPS62133 / TPS62913,forced PWM; LC post-filter
+U8,1,TPS7A2033,300 mA low-noise LDO 3.3 V,SOT-23-5,+3V3D,,from +4V2
 U9,1,LP5907-3.3,250 mA ultra-low-noise LDO,SOT-23-5,+3V3A analog,TPS7A2033,separate star ground
-U10,1,SA818U-V4 (NiceRF),UHF FM transceiver module 400-480 MHz 1 W,module 36x19 mm,FM radio (PMR446 + 70 cm),DRA818U (Dorji),shielded; UART 9600
-U14,1,E22-400M22S (Ebyte),SX1262 LoRa module 410-493 MHz +22 dBm TCXO,module 14x20 mm,LoRa 433 (shares helix),NiceRF LoRa1262-433,SPI; TXEN/RXEN; BUSY; DIO1
-U15,1,E22-900M22S (Ebyte),SX1262 LoRa module 850-930 MHz +22 dBm TCXO,module 14x20 mm,LoRa 868 (own antenna),NiceRF LoRa1262-868,SPI; TXEN/RXEN; BUSY; DIO1
-U16,1,PE4259,SPDT RF switch +34 dBm,SC-70-6,helix: FM chain / LoRa 433,Skyworks SKY13351,arbiter-driven; ~25 dB isolation
-U17,1,TPS7A2033,300 mA low-noise LDO 3.3 V,SOT-23-5,+3V3R LoRa modules,,separate rail keeps LoRa SPI noise off the audio LDO
-U18,1,TS5A3159,analog SPDT switch,SC-70-6,bypass of the 300 Hz TX high-pass (flat path for data/DV),,
-D4,1,BAP64-02 (optional),shunt PIN diode limiter,SOD-523,LoRa 433 input protection during FM TX,,stuff if T-L2 > +5 dBm
-ANT2,1,printed meander IFA 40x8 mm keep-out,,,868 MHz LoRa antenna,,series 10 pF + shunt L tuning pads; >= 30 mm from the helix
+U10,1,SA818S-CE UHF (NiceRF; LCSC C19632390),CE-RED certified UHF FM transceiver module 400-480 MHz 1 W with LNA,module 36x19 mm,FM radio (PMR446 + 70 cm); the only radio,SA818 V4 / DRA818U (same interface),shielded; UART 9600; 4.2 V typ
 U11,1,TLV9062,dual RRIO op-amp,SOT-23-8 / VSSOP-8,audio buffer / AA filter,MCP6002,
 U12,1,TPA6211A1,3 W class-AB mono speaker amp,MSOP-8,standalone speaker,,class-AB to avoid switching noise
 U13,1,TLV9062,dual op-amp,VSSOP-8,DAC reconstruction + mic preamp,,
 MK1,1,SPU0410LR5H-QB,analog MEMS microphone,3.76x2.95 mm,standalone mic,electret 4 mm,
 LS1,1,8 ohm 1 W 28 mm speaker,,,standalone speaker,,magnet outside the ring area
-J1,1,USB4105-GF-A (GCT),USB-C 16-pin receptacle mid-mount,SMD,USB-C,Amphenol 12401610E4#2A,power + USB2 + CC only
+J1,1,USB4105-GF-A (GCT),USB-C 16-pin receptacle mid-mount,SMD,PHONE port,Amphenol 12401610E4#2A,power + USB2 + CC
 J2,1,MM8130-2600 (Murata),RF test switch connector,SMD,RF test port,MM8430,internal; not user accessible
 D1,1,TPD2E2U06 or USBLC6-2SC6,USB D+/D- TVS 0.5 pF,SOT-23-6 / DFN,ESD USB,,
 D2,1,PESD0402-140,RF ESD diode 0.1-0.2 pF,0402,antenna ESD,,with shunt L of the match
 D3,1,SMBJ24A,VBUS TVS,SMB,USB VBUS,,
 L1,1,2.2 uH 8 A shielded,,7x7 mm,BQ25798 inductor,,
+L4,1,2.2 uH 6 A shielded,,6x6 mm,TPS55288 inductor,,
 L2,1,1.0 uH 3 A shielded,,4x4 mm,TPS62130,,
 L3,1,1 uH + FB 600R@100MHz,,0805,+4V0 post-filter,,
 "L_LPF2,L_LPF6",2,22 nH Q>=60 wirewound,,0603,TX LPF,Coilcraft 0603HP-22N / Murata LQW18AN22NG,
@@ -38,7 +37,7 @@ L_LPF4,1,24 nH Q>=60 wirewound,,0603,TX LPF,0603HP-24N,
 C_BPF_C,1,1.0 pF C0G (0.5 + 0.5 pads),,0402,BPF coupling,,
 "C_BPF_R1,C_BPF_R2",2,6.8 pF C0G + 1-3 pF trimmer pads,,0402,BPF resonator,,
 "L_M1,C_M1,C_M2",3,pi-match: shunt L / series C / shunt C (values from VNA),,0402/0603,antenna match,,start 15 nH / 10 pF / NP
-ANT1,1,normal-mode helix 60 mm 6 mm 16T on nylon former in TPU boot tuned 439 MHz,,,integral antenna 430-446 MHz (FM + LoRa 433),PCB meander IFA (option B),brass base insert + M3 boss
+ANT1,1,normal-mode helix 60 mm 6 mm 16T on nylon former in TPU boot tuned 439 MHz,,,integral antenna 430-446 MHz,PCB meander IFA (option B),brass base insert + M3 boss
 FL_CM1,1,90 ohm @100 MHz common-mode choke USB,,0805,USB D+/D-,,
 F1,1,2S chemical fuse (Dexerials SFJ) 6 A,,,secondary protection,,
 Q1,1,dual N-FET 30 V 10 A low Rds,,PowerPAK / TSSOP-8,battery protection switch,,

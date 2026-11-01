@@ -6,8 +6,7 @@
 |-----------|---------|--------------|---------|
 | **FreeDV 2400B** | Codec2 1300 bit/s | 2-FSK-class modem at 48 kHz designed to pass through the mic/speaker path of an ordinary FM radio | **Chosen.** Open (LGPL 2.1), proven on the STM32F405 (the SM1000 is exactly that chip), no hardware change. Interoperates with other FreeDV 2400B stations. |
 | M17 | Codec2 3200 | 4FSK 4800 sym/s needs a flat modulator path to DC and ~5 kHz | Only if T-A4 shows the SA818's bypassed path is flat enough; otherwise it needs a different RF chip (CC1200 class). Kept as a software option. |
-| DMR / dPMR446 | AMBE+2 (licensed) | 4FSK, standard-defined | Excluded: vocoder licensing and type approval for digital PMR446. |
-| Codec2 over LoRa | Codec2 700C/1300 | LoRa SF7 BW250 (~11 kbit/s) | Possible pack-to-pack novelty, not interoperable; not planned. |
+| DMR / dPMR446 | AMBE+2 (licensed) | 4FSK, standard-defined | Excluded for v1: vocoder licensing and type approval for digital PMR446. The NiceRF DMR828S module would be the hardware route for a later digital variant (docs/04). |
 
 ## 14.2 How it is wired
 

@@ -51,22 +51,23 @@ class TestMrp(unittest.TestCase):
         self.assertEqual(d.feed(bytes([0xA5]) + hdr + bytes([hcs]) + good), [(mrp.PTT, 1, b"\x01\x00\x00")])
 
     def test_status_layout(self):
-        p = struct.pack(mrp.STATUS_FMT, 0x11, -101, 16, 7612, -850, 77, -5, 9000, 1500, 1, 9000, 2000, 179, 1, 0, 3, 5, 433500000)
-        self.assertEqual(len(p), 29)
+        p = struct.pack(mrp.STATUS_FMT, 0x11, -101, 16, 7612, -850, 77, -5, 9000, 1500, 1, 9000, 2000, 179, 1, 0, 3, 0x0B, 433500000, 20000, 2250)
+        self.assertEqual(len(p), 33)
         s = mrp.unpack_status(p)
         self.assertEqual(s["rssi_dbm"], -101)
         self.assertEqual(s["flags"], ["PTT", "SOURCING"])
         self.assertEqual(s["mode"], "HAM")
         self.assertEqual(s["freq_hz"], 433500000)
         self.assertTrue(s["dv"]["sync"])
+        self.assertEqual(s["power"], ["PHONE_ATTACHED", "CHARGE_ATTACHED", "PASSTHROUGH"])
+        self.assertEqual(s["charge_port"], {"mv": 20000, "ma": 2250})
 
     def test_payload_sizes(self):
         self.assertEqual(len(mrp.pack_set_freq(433500000)), 9)
         self.assertEqual(len(mrp.pack_set_identity("SQ6EMM", 7, "SKI-7")), 17)
         self.assertEqual(len(mrp.pack_set_beacon(True)), 55)
         self.assertEqual(len(mrp.pack_position(51.1, 17.0)), 15)
-        self.assertEqual(len(mrp.pack_lora_config(0, 1)), 13)
-        self.assertEqual(len(mrp.pack_send_msg(1, "SP6ABC-9", "see you at 18")), 11 + 13)
+        self.assertEqual(len(mrp.pack_send_msg(0, "SP6ABC-9", "see you at 18")), 11 + 13)
         with self.assertRaises(ValueError):
             mrp.pack_send_msg(0, "X", "")
         r = mrp.unpack_msg_rx(bytes([0]) + b"SP6ABC\0\0\0\0" + b"12\0\0\0\0" + b"hi")
@@ -91,9 +92,9 @@ class TestMrp(unittest.TestCase):
             return
         self.assertEqual(mrp.encode(mrp.PTT, 1, mrp.pack_ptt(1)).hex(), v["PTT_KEY_SEQ1"])
         self.assertEqual(mrp.encode(mrp.SET_FREQ, 2, mrp.pack_set_freq(433500000, 4, 1, 0, 12)).hex(), v["SET_FREQ_SEQ2"])
-        st = struct.pack(mrp.STATUS_FMT, 0x11, -101, 16, 7612, -850, 77, -5, 9000, 1500, 1, 9000, 2000, 179, 1, 0, 3, 5, 433500000)
+        st = struct.pack(mrp.STATUS_FMT, 0x11, -101, 16, 7612, -850, 77, -5, 9000, 1500, 1, 9000, 2000, 179, 1, 0, 3, 0x0B, 433500000, 20000, 2250)
         self.assertEqual(mrp.encode(mrp.STATUS, 3, st).hex(), v["STATUS_SEQ3"])
-        self.assertEqual(mrp.encode(mrp.SEND_MSG, 4, mrp.pack_send_msg(1, "SP6ABC-9", "see you at 18")).hex(), v["SEND_MSG_SEQ4"])
+        self.assertEqual(mrp.encode(mrp.SEND_MSG, 4, mrp.pack_send_msg(0, "SP6ABC-9", "see you at 18")).hex(), v["SEND_MSG_SEQ4"])
         frame = afsk_wav.build_ui("APZMRP", "SQ6EMM-7", ["WIDE1-1"], b"!5106.50N/01702.25E[mobile-radio")
         self.assertEqual(frame.hex(), v["AX25_UI"])
         levels = afsk_wav.hdlc_levels(frame, 2, 1)

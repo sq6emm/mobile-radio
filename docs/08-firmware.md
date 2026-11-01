@@ -16,10 +16,10 @@ port layer are checked with `make -C firmware check-app`.
 | `bandplan` | PMR446 / HAM 70 cm modes, callsign unlock, frequency and power rules |
 | `ax25`, `afsk` | AX.25 UI frames, HDLC, FCS; Bell 202 modulator and demodulator (16/48 kHz) |
 | `aprs`, `msg`, `beacon` | APRS positions/messages/acks; message retries and dedupe; SmartBeaconing |
-| `arbiter` | who may transmit on the shared antenna path (voice > DV > data > LoRa 433), RF switch position |
+| `arbiter` | who may transmit (voice = DV > data); voice pre-empts data |
 | `resample` | 48 <-> 16 kHz FIR |
-| `lora_sx1262`, `lora_aprs` | SX1262 command-level driver (two instances, mock-tested); LoRa-APRS framing |
 | `dv` | FreeDV 2400B glue around the Codec2 library (submodule `third_party/codec2`) |
+| `pd_policy` | PHONE port role policy, now with the pass-through rule (`pd_policy_set_external_power`) |
 | `include/hal.h` | the port API the application needs |
 | `src/app_main.c` | application super-loop and MRP handlers |
 | `port/host/hal_host.c`, `main_host.c`, `freedv_stub.c` | stub port and FreeDV stand-in so the whole application links on Linux (`build/app_host`) |
@@ -35,17 +35,17 @@ CDC / UAC instances optional). Nothing in `src/` touches a register.
 
 ```
 init: parser, pd_policy, ptt_guard, bandplan, arbiter, msg, beacon, resamplers,
-      AFSK demod -> HDLC -> on_ax25_frame, radio_init, two SX1262 (presets), USB profile
+      AFSK demod -> HDLC -> on_ax25_frame, radio_init, USB profile
 loop @ 1 kHz:
   kick watchdog
   USB bulk in -> mrp_parser_feed -> on_frame()
   local PTT button -> ptt_guard_request(LOCAL); sound-card profile: CDC RTS -> ptt_guard_request(HOST)
-  voice keyed? -> arbiter_request(FM_VOICE | FM_DV) (pre-empts data / LoRa 433)
-  keyed = ptt_guard_tick() -> RF switch to FM, LoRa 433 standby, hal_radio_ptt, audio paths
+  voice keyed? -> arbiter_request(FM_VOICE | FM_DV) (pre-empts data)
+  keyed = ptt_guard_tick() -> hal_radio_ptt, audio paths
   data_tx_service(): generate AFSK chunk-wise into the DAC ring; unkey when drained
   audio_rx_service(): ADC 48 kHz -> [DV rx] or [/3 -> AUDIO_RX to phone + AFSK demod]
-  lora_service(): SX1262 events (TX done -> release arbiter; RX -> LoRa-APRS -> msg/APRS -> host)
-  every 1 s: power status, pd_policy_tick, inhibit, beacon_due -> send, msg_next_tx -> send, STATUS
+  every 1 s: power status of both ports, pd_policy_set_external_power + pd_policy_tick,
+             charge throttling, inhibit, beacon_due -> send, msg_next_tx -> send, STATUS
 ```
 
 Audio is DMA driven so the loop's jitter does not matter; the loop copies or
@@ -71,10 +71,9 @@ packet at 48 kHz would need 192 KB).
 `SET_FREQ` anywhere on the 12.5 kHz grid between 430 and 440 MHz. HAM is
 locked until `SET_IDENTITY` stores a syntactically valid callsign
 (`bandplan_callsign_valid`: 3-7 upper-case alphanumerics, a digit, a letter,
-ending in a letter). The callsign-SSID becomes the AX.25/APRS/LoRa-APRS
+ending in a letter). The callsign-SSID becomes the AX.25/APRS
 source address; in PMR mode the nickname is used instead. Switching back to
-PMR turns digital voice off and reloads the ISM LoRa preset with the 10 mW
-ERP power cap.
+PMR turns digital voice off.
 
 ## 8.3c Data paths
 
@@ -87,10 +86,6 @@ ERP power cap.
   whenever the squelch is open (or squelch is 0); decoded frames go to the
   host raw (`DATA_RX`) and through `msg_on_rx` / `aprs_decode`
   (`MSG_RX`, `APRS_RX`, automatic acks on the same transport).
-- **LoRa**: `lora_send()` asks the arbiter (433 shares the antenna, 868 is
-  free), caps 433 power in PMR/ISM mode, configures and transmits; `TX_DONE`
-  releases the arbiter. Receive runs continuously on 868 and on 433 only when
-  the user prefers the LoRa receiver (`LORA_CONFIG.rx_pref`).
 - **Digital voice**: `SET_DV` opens FreeDV 2400B (HAM only), bypasses the
   module's emphasis and the hardware 300 Hz high-pass for a flat path;
   `AUDIO_TX` frames go through `dv_tx_push` (48 kHz modem audio to the DAC),
@@ -111,10 +106,15 @@ calibrated at the RF test port.
 
 ## 8.5 Power management
 
-- `pd_policy` decides swaps and source enable; the port turns actions into
-  TPS25751 commands (`SWSr`/`SWDF` 4CC tasks) and BQ25798 register writes.
-- Charger: input current limit follows the PD contract; OTG voltage follows
-  the source contract; VSYS min 6.2 V.
+- `pd_policy` decides swaps and source enable on the PHONE port; the port
+  turns actions into TPS25751 commands (`SWSr`/`SWDF` 4CC tasks), TPS55288
+  set-point/enable writes and BQ25798 input-limit writes.
+- CHARGE port: the STUSB4500 negotiates on its own; the application reads
+  the contract once a second, sets the BQ25798 VAC2 input limit, and calls
+  `pd_policy_set_external_power()` so that sourcing to the phone continues
+  below the reserve (pass-through). Thermal throttling reduces the battery
+  charge current first (`hal_power_charge_throttle`), the phone's power last.
+- VSYS min 6.2 V.
 - Sleep: with no host and no activity for 5 min the MCU enters STOP mode,
   wakes on the PTT button, the SQ line, USB attach or the gauge alarm; the
   radio stays in receive (65 mA) unless the user turns it off with a long
@@ -153,7 +153,7 @@ cmake --build /tmp/codec2-build -j --target codec2
 | Resamplers 48 <-> 16 kHz, 96 taps | ~4 % |
 | USB vendor bulk + CDC | ~3 % |
 | UAC2 48 kHz isochronous (sound-card profile; DV is off then) | ~5 % |
-| Two SX1262 drivers, MRP, control | ~2 % |
+| MRP, PD/charger control | ~2 % |
 
 DV and the sound-card profile are never active at the same time, so the
 worst case is DV + AFSK RX + resampling + USB bulk at roughly 50 %. If the

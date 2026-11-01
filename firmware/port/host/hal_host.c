@@ -39,13 +39,6 @@ size_t hal_radio_uart_read_line(char *buf, size_t cap, uint32_t timeout_ms)
     return (size_t)snprintf(buf, cap, "+DMOCONNECT:0\r\n");
 }
 
-void hal_rf_antenna_to_lora433(bool to) { (void)to; }
-void hal_lora_spi_xfer(int idx, const uint8_t *tx, uint8_t *rx, size_t n) { (void)idx; (void)tx; memset(rx, 0, n); }
-void hal_lora_wait_busy(int idx) { (void)idx; }
-void hal_lora_reset(int idx) { (void)idx; }
-bool hal_lora_dio1(int idx) { (void)idx; return false; }
-void hal_lora_rf_switch(int idx, bool tx, bool rx) { (void)idx; (void)tx; (void)rx; }
-
 size_t hal_audio_rx_read(int16_t *pcm, size_t n) { (void)pcm; (void)n; return 0; }
 size_t hal_audio_tx_write(const int16_t *pcm, size_t n) { (void)pcm; return n; }
 size_t hal_audio_tx_free(void) { return 4096; }
@@ -61,6 +54,7 @@ void hal_power_read(hal_power_status_t *st)
 }
 void hal_power_set_sink_limit_ma(uint32_t ma) { (void)ma; }
 void hal_power_source_enable(bool on, uint8_t w) { (void)on; (void)w; }
+void hal_power_charge_throttle(uint8_t pct) { (void)pct; }
 void hal_pd_request_pr_swap(void) {}
 void hal_pd_request_dr_swap(void) {}
 void hal_pd_reply_pr_swap(bool a) { (void)a; }

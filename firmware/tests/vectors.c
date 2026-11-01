@@ -21,9 +21,10 @@ int main(void)
     hex("SET_FREQ_SEQ2", f, mrp_encode(f, sizeof f, MRP_SET_FREQ, 2, pl, (uint16_t)mrp_pack_set_freq(&fq, pl)));
     mrp_status_t st = { .flags = 0x11, .rssi_dbm = -101, .channel = 16, .batt_mv = 7612, .batt_ma = -850, .soc_pct = 77,
                         .temp_c = -5, .vbus_mv = 9000, .vbus_ma = 1500, .pd_role = 1, .pd_mv = 9000, .pd_ma = 2000,
-                        .tx_remaining_s = 179, .mode = 1, .profile = 0, .dv_flags = 3, .lora_flags = 5, .freq_hz = 433500000u };
+                        .tx_remaining_s = 179, .mode = 1, .profile = 0, .dv_flags = 3, .pwr_flags = 0x0B, .freq_hz = 433500000u,
+                        .in_mv = 20000, .in_ma = 2250 };
     hex("STATUS_SEQ3", f, mrp_encode(f, sizeof f, MRP_STATUS, 3, pl, (uint16_t)mrp_pack_status(&st, pl)));
-    size_t n = mrp_pack_send_msg(pl, sizeof pl, MRP_TR_LORA433, "SP6ABC-9", "see you at 18");
+    size_t n = mrp_pack_send_msg(pl, sizeof pl, MRP_TR_FM, "SP6ABC-9", "see you at 18");
     hex("SEND_MSG_SEQ4", f, mrp_encode(f, sizeof f, MRP_SEND_MSG, 4, pl, (uint16_t)n));
 
     ax25_addr_t dst, src, digi;

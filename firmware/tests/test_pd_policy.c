@@ -90,6 +90,27 @@ int main(void)
     CHECK(!p.attached);
     CHECK_EQ(pd_policy_tick(&p, 40, 90).kind, PD_ACT_NONE);
 
+    /* 10. Pass-through: with a charger on the CHARGE port, low SoC does not stop sourcing;
+     *     removing the charger at low SoC hands power back; plugging it in again resumes. */
+    pd_policy_init(&p, NULL);
+    attach(&p, PD_POWER_SINK, PD_DATA_UFP, true, true, 0);
+    swap_result(&p, PD_EV_PR_SWAP_RESULT, true, 10);
+    pd_policy_set_external_power(&p, true, 20);
+    CHECK_EQ(pd_policy_tick(&p, 1000, 10).kind, PD_ACT_NONE);         /* keeps sourcing */
+    CHECK(pd_policy_goal_reached(&p));
+    pd_policy_set_external_power(&p, false, 2000);
+    CHECK_EQ(pd_policy_tick(&p, 2001, 10).kind, PD_ACT_REQUEST_PR_SWAP); /* now hand back */
+    swap_result(&p, PD_EV_PR_SWAP_RESULT, true, 2100);
+    CHECK_EQ(p.power_role, PD_POWER_SINK);
+    pd_policy_set_external_power(&p, true, 3000);
+    CHECK_EQ(pd_policy_tick(&p, 3001, 10).kind, PD_ACT_REQUEST_PR_SWAP); /* charger back: source again */
+    /* low battery and a phone attached while external power is present: source from the start */
+    pd_policy_init(&p, NULL);
+    pd_policy_set_external_power(&p, true, 0);
+    pd_policy_tick(&p, 1, 8);                                             /* SoC 8 %: paused flag set */
+    a = attach(&p, PD_POWER_SINK, PD_DATA_UFP, true, true, 10);
+    CHECK_EQ(a.kind, PD_ACT_REQUEST_PR_SWAP);
+
     /* 9. User disabled sourcing: with a phone we stay sink and only trickle. */
     pd_policy_init(&p, NULL);
     p.cfg.allow_source = false;

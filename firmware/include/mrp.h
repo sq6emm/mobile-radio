@@ -58,8 +58,7 @@ enum mrp_type {
     MRP_SEND_MSG    = 0x0E,
     MRP_SET_PROFILE = 0x0F,   /* 0 app, 1 sound-card (re-enumerates) */
     MRP_AUDIO_TX    = 0x10,   /* PCM from phone mic -> transmitter */
-    MRP_LORA_CONFIG = 0x11,
-    MRP_LORA_TX     = 0x12,   /* raw LoRa payload */
+    /* 0x11, 0x12 reserved (were LoRa; removed with the single-radio decision) */
     MRP_SET_DV      = 0x13,   /* FreeDV 2400B on/off (HAM only) */
     /* device -> host */
     MRP_NAK         = 0x7F,
@@ -70,11 +69,11 @@ enum mrp_type {
     MRP_DATA_RX     = 0x92,   /* raw AX.25 frame as received (for logging apps) */
     MRP_MSG_RX      = 0x93,
     MRP_MSG_STATUS  = 0x94,
-    MRP_LORA_RX     = 0x95,
+    /* 0x95 reserved (was LoRa RX) */
     MRP_APRS_RX     = 0x96,   /* decoded position/status from another station */
 };
 
-enum mrp_transport { MRP_TR_FM = 0, MRP_TR_LORA433 = 1, MRP_TR_LORA868 = 2 };
+enum mrp_transport { MRP_TR_FM = 0 };   /* kept in the wire format for forward compatibility */
 enum mrp_profile   { MRP_PROFILE_APP = 0, MRP_PROFILE_SOUNDCARD = 1 };
 
 /* ----- payloads (wire sizes given; packed/unpacked by helpers below) ----- */
@@ -145,7 +144,7 @@ typedef struct {
 #define MRP_CAP_PD_SNK  (1u << 3)
 #define MRP_CAP_UAC     (1u << 4)   /* can re-enumerate with a USB Audio Class profile */
 
-#define MRP_STATUS_LEN 29
+#define MRP_STATUS_LEN 33
 typedef struct {
     uint16_t flags;          /* MRP_ST_* */
     int8_t   rssi_dbm;
@@ -154,17 +153,24 @@ typedef struct {
     int16_t  batt_ma;        /* + = charging, - = discharging */
     uint8_t  soc_pct;
     int8_t   temp_c;         /* hottest of PA / cells */
-    uint16_t vbus_mv;
-    int16_t  vbus_ma;        /* + = sourcing to phone, - = sinking */
-    uint8_t  pd_role;        /* MRP_PD_* */
-    uint16_t pd_mv, pd_ma;   /* negotiated contract */
+    uint16_t vbus_mv;        /* PHONE port */
+    int16_t  vbus_ma;        /* PHONE port: + = sourcing to phone, - = sinking */
+    uint8_t  pd_role;        /* MRP_PD_* (PHONE port) */
+    uint16_t pd_mv, pd_ma;   /* negotiated contract on the PHONE port */
     uint16_t tx_remaining_s; /* time left before transmit time-out */
     uint8_t  mode;           /* 0 PMR446, 1 HAM */
     uint8_t  profile;        /* mrp_profile */
     uint8_t  dv_flags;       /* bit0 DV enabled, bit1 DV sync */
-    uint8_t  lora_flags;     /* bit0 433 listening, bit1 433 TX, bit2 868 listening, bit3 868 TX */
+    uint8_t  pwr_flags;      /* MRP_PW_* */
     uint32_t freq_hz;        /* current FM frequency */
+    uint16_t in_mv;          /* CHARGE port voltage */
+    uint16_t in_ma;          /* CHARGE port current drawn */
 } mrp_status_t;
+#define MRP_PW_PHONE_ATTACHED  (1u << 0)
+#define MRP_PW_CHARGE_ATTACHED (1u << 1)
+#define MRP_PW_CHARGER_CONTRACT (1u << 2)   /* PD contract on the CHARGE port */
+#define MRP_PW_PASSTHROUGH     (1u << 3)    /* sourcing to the phone while powered from CHARGE */
+#define MRP_PW_INPUT_IS_PHONE  (1u << 4)    /* the pack is being powered through the PHONE port */
 #define MRP_ST_PTT        (1u << 0)
 #define MRP_ST_SQ_OPEN    (1u << 1)
 #define MRP_ST_TX_INHIBIT (1u << 2)
@@ -200,7 +206,7 @@ typedef struct {
     uint8_t  enabled, smart;
     uint16_t interval_s;
     char     sym_table, sym_code;
-    uint8_t  transport;      /* mrp_transport, 3 = FM + LoRa433 */
+    uint8_t  transport;      /* mrp_transport (0 = FM) */
     char     path[16];
     char     comment[32];
 } mrp_set_beacon_t;
@@ -219,18 +225,6 @@ typedef struct {
 #define MRP_MSG_STATUS_LEN 3
 typedef struct { uint16_t id; uint8_t state; } mrp_msg_status_t;
 
-#define MRP_LORA_CONFIG_LEN 13
-typedef struct {
-    uint8_t  radio;          /* 0 = 433, 1 = 868 */
-    uint8_t  preset;         /* 0 custom, 1 aprs433, 2 meshtastic868 phy, 3 pack433, 4 pack868 */
-    uint32_t freq_hz;
-    uint8_t  sf, bw, cr;
-    int8_t   power_dbm;
-    uint16_t sync_word;
-    uint8_t  rx_pref;        /* 0 FM, 1 LoRa433 (antenna preference when idle) */
-} mrp_lora_config_t;
-
-#define MRP_LORA_RX_HDR 4        /* radio u8, rssi i16, snr i8, then payload */
 #define MRP_APRS_RX_HDR 24       /* transport u8, src char[10], kind u8, lat_e7 i32, lon_e7 i32, course i16, speed u16, then text */
 
 size_t mrp_pack_set_freq(const mrp_set_freq_t *m, uint8_t *buf);
@@ -238,19 +232,16 @@ size_t mrp_pack_set_identity(const mrp_set_identity_t *m, uint8_t *buf);
 size_t mrp_pack_set_beacon(const mrp_set_beacon_t *m, uint8_t *buf);
 size_t mrp_pack_position(const mrp_position_t *m, uint8_t *buf);
 size_t mrp_pack_msg_status(const mrp_msg_status_t *m, uint8_t *buf);
-size_t mrp_pack_lora_config(const mrp_lora_config_t *m, uint8_t *buf);
 bool mrp_unpack_set_freq(const uint8_t *buf, uint16_t len, mrp_set_freq_t *m);
 bool mrp_unpack_set_identity(const uint8_t *buf, uint16_t len, mrp_set_identity_t *m);
 bool mrp_unpack_set_beacon(const uint8_t *buf, uint16_t len, mrp_set_beacon_t *m);
 bool mrp_unpack_position(const uint8_t *buf, uint16_t len, mrp_position_t *m);
 bool mrp_unpack_msg_status(const uint8_t *buf, uint16_t len, mrp_msg_status_t *m);
-bool mrp_unpack_lora_config(const uint8_t *buf, uint16_t len, mrp_lora_config_t *m);
 
 /* variable-length helpers; return total length or 0 */
 size_t mrp_pack_send_msg(uint8_t *buf, size_t cap, uint8_t transport, const char *to, const char *text);
 bool   mrp_unpack_send_msg(const uint8_t *buf, uint16_t len, uint8_t *transport, char to[11], char text[68]);
 size_t mrp_pack_msg_rx(uint8_t *buf, size_t cap, uint8_t transport, const char *from, const char *id, const char *text);
-size_t mrp_pack_lora_rx(uint8_t *buf, size_t cap, uint8_t radio, int16_t rssi, int8_t snr, const uint8_t *pl, size_t n);
 size_t mrp_pack_aprs_rx(uint8_t *buf, size_t cap, uint8_t transport, const char *src, uint8_t kind,
                         int32_t lat_e7, int32_t lon_e7, int16_t course, uint16_t speed, const char *text);
 

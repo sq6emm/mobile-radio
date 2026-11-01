@@ -36,16 +36,6 @@ bool     hal_radio_squelch_open(void);                      /* SQ pin, low = car
 size_t   hal_radio_uart_write(const char *s, size_t len);
 size_t   hal_radio_uart_read_line(char *buf, size_t cap, uint32_t timeout_ms);
 
-/* --- RF switch: helix to FM chain (false) or to LoRa 433 module (true) --- */
-void     hal_rf_antenna_to_lora433(bool to_lora);
-
-/* --- LoRa modules: idx 0 = 433 MHz, 1 = 868 MHz ---------------------- */
-void     hal_lora_spi_xfer(int idx, const uint8_t *tx, uint8_t *rx, size_t n);
-void     hal_lora_wait_busy(int idx);
-void     hal_lora_reset(int idx);
-bool     hal_lora_dio1(int idx);
-void     hal_lora_rf_switch(int idx, bool tx, bool rx);
-
 /* --- audio (48 kHz mono s16) ----------------------------------------- */
 size_t   hal_audio_rx_read(int16_t *pcm, size_t max_samples);   /* from the ADC ring */
 size_t   hal_audio_tx_write(const int16_t *pcm, size_t n);      /* into the DAC ring */
@@ -55,19 +45,27 @@ void     hal_audio_tx_enable(bool on);
 void     hal_audio_flat_path(bool flat);                        /* bypass the 300 Hz HPF (data modes) */
 void     hal_audio_local_path(bool speaker_on, bool mic_on);
 
-/* --- power: charger (BQ25798) + PD controller (TPS25751) + gauge ---- */
+/* --- power ------------------------------------------------------------
+ * Two USB-C ports: PHONE (TPS25751 DRP + TPS55288 source converter, data to the
+ * MCU) and CHARGE (STUSB4500 sink controller, power only). BQ25798 charges the
+ * battery from whichever port supplies power (VAC1 = PHONE, VAC2 = CHARGE). */
 typedef struct {
-    uint16_t batt_mv, vbus_mv, sys_mv;
-    int16_t  batt_ma, vbus_ma;
+    uint16_t batt_mv, sys_mv;
+    int16_t  batt_ma;             /* + = charging */
+    uint16_t vbus_mv;             /* PHONE port */
+    int16_t  vbus_ma;             /* PHONE port: + = sourcing to the phone, - = drawing from it */
+    uint16_t in_mv, in_ma;        /* CHARGE port */
     int8_t   temp_c;
     uint8_t  soc_pct;
     bool     charging, sourcing, fault;
+    bool     phone_attached, charge_attached, charger_contract, input_is_phone;
 } hal_power_status_t;
 
 void     hal_power_read(hal_power_status_t *st);
-void     hal_power_set_sink_limit_ma(uint32_t ma);
-void     hal_power_source_enable(bool on, uint8_t max_w);
-void     hal_pd_request_pr_swap(void);
+void     hal_power_set_sink_limit_ma(uint32_t ma);        /* input limit for the active input (BQ25798) */
+void     hal_power_source_enable(bool on, uint8_t max_w); /* TPS55288 to the PHONE port */
+void     hal_power_charge_throttle(uint8_t pct);          /* 100 = full charge current (thermal) */
+void     hal_pd_request_pr_swap(void);                    /* PHONE port controller */
 void     hal_pd_request_dr_swap(void);
 void     hal_pd_reply_pr_swap(bool accept);
 

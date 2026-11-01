@@ -32,22 +32,12 @@ IDs are stable; later documents refer to them. "Shall" = required for v1,
 | ID | Requirement | Rationale / acceptance |
 |----|-------------|------------------------|
 | R10 | Shall offer a HAM mode tuning 430.000-440.000 MHz on a 12.5 kHz grid, FM 12.5/25 kHz, up to 1 W conducted, only after a syntactically valid amateur callsign has been stored. | Licensed users; the licence holder is responsible for legal use (docs/10). `bandplan.c`. |
-| R11 | Shall identify with the stored callsign (and SSID) in every AX.25/APRS/LoRa-APRS frame; the app shall remind the operator to identify by voice. | Station identification rules. |
-| R12 | Shall provide APRS position beacons (fixed interval or SmartBeaconing) on 432.500 MHz by default (user settable in band) via 1200 Bd AFSK, and on 433.775 MHz via LoRa-APRS. | docs/12, docs/13. |
-| R13 | Shall provide text messages between stations using the APRS message format with acknowledgements, over FM AFSK and over LoRa, in both modes (callsign in HAM mode, nickname in PMR mode). | Interoperates with any APRS-capable radio or iGate. |
+| R11 | Shall identify with the stored callsign (and SSID) in every AX.25/APRS frame; the app shall remind the operator to identify by voice. | Station identification rules. |
+| R12 | Shall provide APRS position beacons (fixed interval or SmartBeaconing) on 432.500 MHz by default (user settable in band) via 1200 Bd AFSK. | docs/12. |
+| R13 | Shall provide text messages between stations using the APRS message format with acknowledgements over FM AFSK, in both modes (callsign in HAM mode, nickname in PMR mode). | Interoperates with any APRS-capable radio or iGate. |
+| R16 | The product contains exactly one radio transmitter: the 400-480 MHz FM module. No LoRa, Wi-Fi, Bluetooth or other RF chips. | Decision 2026-11: single-radio product; simplifies certification and coexistence. |
 | R14 | Should provide FreeDV 2400B digital voice (Codec2 1300 bit/s) through the FM path, HAM mode only. | docs/14. |
 | R15 | The audio path shall be flat to >= 6 kHz and sampled at 48 kHz so that 9600 Bd and other audio-coupled digital modes can be added in software later. | Keeps the door open (M17, G3RUH, POCSAG RX). |
-
-### 1.2c LoRa
-
-| ID | Requirement | Rationale / acceptance |
-|----|-------------|------------------------|
-| L1 | Shall contain a 433 MHz SX1262 LoRa transceiver sharing the helix antenna through an RF switch, and an 868 MHz SX1262 transceiver with its own internal antenna. | User decision; docs/13. |
-| L2 | 433 MHz LoRa: 433.050-434.790 MHz; <= 10 mW ERP in PMR (ISM) mode, up to +22 dBm conducted in HAM mode. | EN 300 220 vs amateur licence. |
-| L3 | 868 MHz LoRa: 869.400-869.650 MHz, <= 500 mW ERP, <= 10 % duty cycle (firmware enforced), or 868.0-868.6 MHz <= 25 mW, 1 %. | EN 300 220 Annex B. |
-| L4 | Shall transmit and receive LoRa-APRS frames (433.775 MHz, SF12/BW125/CR4-5) and pack-to-pack messages/positions on both bands. | docs/13. |
-| L5 | FM voice shall pre-empt any LoRa 433 transmission; LoRa 433 shall be held in standby while the FM transmitter is keyed; the 868 radio is independent. | Shared antenna, receiver protection; `arbiter.c`. |
-| L6 | Meshtastic radio settings shall be selectable as a PHY preset; Meshtastic protocol interoperability is a separate later effort. | Honest scope. |
 
 ### 1.2d Digital voice
 
@@ -62,12 +52,15 @@ IDs are stable; later documents refer to them. "Shall" = required for v1,
 | ID | Requirement | Rationale / acceptance |
 |----|-------------|------------------------|
 | P1 | Shall contain a 2S Li-ion battery of about 30 Wh (<= 100 Wh). | Charges a phone ~1.3x; carry-on compliant. |
-| P2 | Shall source USB PD 5 V/3 A and 9 V/2 A (18 W) to the phone, and should source 12 V/1.5 A. | Covers phones' normal charge profiles. |
-| P3 | Shall sink 5/9/15 V PD at up to 27 W to charge itself, and 5 V/1.5 A from legacy ports. | 0.5 C charge of 4 Ah cells. |
+| P2 | Shall source USB PD 5 V/3 A and 9 V/2 A (18 W) to the phone on the PHONE port, and should source 12 V/1.5 A. | Covers phones' normal charge profiles. |
+| P3 | Shall sink 5/9/15/20 V PD at up to 45 W on the CHARGE port (and up to 27 W on the PHONE port when a charger is plugged there), and 5 V/1.5 A from legacy ports. | 0.5 C charge of the cells plus the phone's 18 W at the same time. |
+| P10 | Shall have two USB-C ports on the bottom edge: PHONE (power + USB 2.0 data, DRP) and CHARGE (power only, sink). | User requirement: charge the pack and the phone through the pack at the same time. |
+| P11 | Pass-through: with a charger on CHARGE and a phone on PHONE, the phone shall receive its negotiated power (up to 18 W) with priority, the battery shall charge from the remainder, and the radio and the USB link shall keep working. | Dynamic power management in the charger; thermal throttling of the battery charge first. |
+| P12 | A charger plugged into PHONE shall charge the pack (no sourcing, no data); two chargers shall not damage anything (one input is selected). | Ports are labelled, but mistakes must be safe. |
 | P4 | Shall be the PD power source and USB data device (UFP) simultaneously when attached to a PD phone; shall request the necessary PR_Swap / DR_Swap and fall back gracefully. | USB Type-C/PD roles (docs/03). |
 | P5 | Shall stop sourcing power below a configurable reserve (default 20 %) so the radio stays usable; shall resume with hysteresis. | Radio has priority over phone charging. |
 | P6 | Shall keep the radio powered from the battery while charging. | Power-path charger. |
-| P7 | Radio rail shall be 4.0 V +/- 3 % with < 10 mVpp ripple at the module during RX; TX current step of 0.8 A shall not drop it below 3.6 V. | Module supply spec 3.3-4.5 V; noise into the receiver. |
+| P7 | Radio rail shall be 4.2 V +/- 3 % with < 10 mVpp ripple at the module during RX; TX current step of 0.8 A shall not drop it below 3.8 V. | Module supply spec 3.3-5.5 V, 4.2 V typical; noise into the receiver. |
 | P8 | Shall survive USB-C faults: VBUS short, reverse current, 20 V on VBUS while sourcing, CC short to VBUS. | Standard PD source/sink protections. |
 | P9 | Battery shall have primary and secondary protection (OV, UV, OC, OT) and a fuel gauge with +/- 5 % SoC. | IEC 62133-2, UN 38.3. |
 
@@ -96,7 +89,6 @@ IDs are stable; later documents refer to them. "Shall" = required for v1,
 ## 1.6 Out of scope for v1
 
 - Standards-based digital PMR446 (dPMR446 / DMR446: licensed AMBE vocoder), repeaters, higher power, other bands.
-- Bluetooth or Wi-Fi links to the phone (USB only).
-- Meshtastic protocol stack (routing, encryption, protobufs): only its radio settings are provided as a preset.
+- Any second radio: LoRa 433/868, Bluetooth, Wi-Fi, ESP32-class connectivity (evaluated and rejected in the November 2026 review: single 400 MHz radio, R16).
 - 9600 Bd / M17 / POCSAG: software additions later; hardware keeps the path (R15).
 - Qi wireless charging (coil area and EMI conflict with the antenna and receiver).

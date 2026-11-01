@@ -1,15 +1,15 @@
 # Sheet 3: radio module and RF chain
 
-## U10 SA818U-V4 (16-pin castellated; names per NiceRF datasheet, **VERIFY**)
+## U10 SA818S-CE UHF (16-pin castellated; pin-compatible with SA818 per NiceRF; names per the SA818S datasheet, **VERIFY**)
 
 | Pin | Name | Connection |
 |-----|------|------------|
 | 1 | ANT | RF_MOD -> C_dc 100 pF -> LPF C1 |
 | 2,3 | GND | ground, many vias |
-| 4 | PTT | PB0 through 1 k, 100 pF to GND; 10 k pull-up to +4V0 (inactive high) |
+| 4 | PTT | PB0 through 1 k, 100 pF to GND; 10 k pull-up to +4V2 (inactive high) |
 | 5 | PD | PB1 through 1 k (low = power down) |
 | 6 | H/L | PB2 through 1 k (high = 1 W, low = 0.5 W; **VERIFY** polarity) |
-| 7 | VCC | +4V0, 100 uF + 100 nF + 1 nF at pin |
+| 7 | VCC | +4V2, 100 uF + 100 nF + 1 nF at pin |
 | 8 | GND | |
 | 9 | MIC_IN | from sheet 4 TX attenuator; 100 ohm + 1 nF at pin |
 | 10 | GND | |
@@ -33,18 +33,18 @@ RF_MOD --C_dc 100p-- node1 --L2 22n-- node2 --L4 24n-- node3 --L6 22n-- RF_LPF
 Each shunt capacitor has two ground vias; the inductors are placed in a
 line with 1 mm clearance, alternating orientation to reduce mutual coupling.
 
-## Optional BPF (option A footprint, bypass with 0 ohm 0402 links when unused)
+## BPF (439 MHz, 50 MHz wide; bypass with 0 ohm 0402 links when unused)
 
 ```
-RF_LPF --Ce 2.2p-- R1 --Cc 0.7p-- R2 --Ce 2.2p-- RF_BPF
+RF_LPF --Ce 2.7p-- R1 --Cc 1.0p-- R2 --Ce 2.7p-- RF_BPF
                    |              |
              L 12n || C 6.8p + trimmer pads
                    |              |
                   GND            GND
 ```
 
-Option B (RX-only SAW): two PE4259 SPDT footprints, control from PTT buffered
-by a 74LVC1G04; SAW footprint 3.0 x 3.0 mm; TX branch is a 0 ohm link.
+Option B (RX-only SAW behind a PE4259 pair) keeps its footprints for the
+coexistence test T-R7.
 
 ## Test switch, match, ESD, antenna
 

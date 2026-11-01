@@ -6,7 +6,7 @@ requirement they cover.
 ## 11.1 Bring-up order
 
 1. **Power only, no cells**: feed 7.4 V from a bench supply with 1 A limit on
-   the cell pads; check rails (+4V0, +3V3D, +3V3A), ripple, sequencing. Then
+   the cell pads; check rails (+4V2, +3V3D, +3V3A), ripple, sequencing. Then
    attach cells through the protector; verify charge/discharge FET control.
 2. **PD controller**: program TPS25751 configuration, attach a PD analyser
    (e.g. a Type-C sniffer such as a Twinkie/PD analyser) and a laptop: observe
@@ -42,22 +42,18 @@ requirement they cover.
 | T-R9 | Blocking / spurious response | EN 300 296 methods | per standard |
 | T-R10 | Busy-channel lockout, TOT, keep-alive | functional with a second radio | 180 s TOT, 2 s keep-alive, lockout refuses PTT |
 
-## 11.2b Data, LoRa, digital voice and modes
+## 11.2b Data, digital voice and modes
 
 | ID | Test | Expectation |
 |----|------|-------------|
 | T-D1 | AFSK packet into Direwolf / a hardware TNC from the pack's audio (and from `tools/afsk_wav.py`) | 100 % decode at good signal; frame bytes identical to `firmware/build/vectors` |
-| T-D2 | APRS beacon received by an iGate (HAM mode, 432.500 MHz FM and 433.775 MHz LoRa) | position appears on aprs.fi with the callsign-SSID |
-| T-D3 | Two packs exchange messages over FM and over LoRa 433/868; acks and retries | delivery and `MSG_STATUS` acked; duplicate suppression |
+| T-D2 | APRS beacon received by an iGate (HAM mode, 432.500 MHz FM) | position appears on aprs.fi with the callsign-SSID |
+| T-D3 | Two packs exchange messages over FM; acks and retries | delivery and `MSG_STATUS` acked; duplicate suppression |
 | T-D4 | Voice pre-emption | PTT during a data frame keys voice within 50 ms; data retried later |
 | T-D5 | Busy-channel behaviour for data | no data TX while the squelch is open; back-off |
 | T-A3 | AFSK deviation | 1200/2200 Hz tones at 3.0 kHz +/- 0.3 kHz peak deviation |
 | T-A4 | Module modulator flatness, all filters bypassed, 20 Hz-6 kHz | record; decides 9600 Bd / M17 feasibility |
 | T-A5 | FreeDV 2400B over the air to an SM1000 or a PC running FreeDV | sync and intelligible audio at >= -110 dBm |
-| T-L1 | LoRa 433/868 TX power and spurious (EN 300 220) at both module ports | <= limits; 433 PMR mode <= 10 mW ERP |
-| T-L2 | FM 1 W TX leakage into the LoRa 433 input | <= +5 dBm measured at the module pin; module survives 1000 keyings; limiter stuffed if > +5 dBm |
-| T-L3 | LoRa 868 TX while receiving weak FM | no audible click / desense <= 3 dB |
-| T-L4 | 868 duty-cycle accounting | TX refused after 6 min of air time per hour in 869.4-869.65 |
 | T-M1b | Mode lock | HAM mode refused without a callsign; PMR caps unchanged after unlock |
 | T-U5 | Sound-card profile with Direwolf (RTS PTT) and FreeDV GUI on a PC, and as a headset on iOS | works without any driver or app of ours |
 
@@ -65,9 +61,13 @@ requirement they cover.
 
 | ID | Test | Expectation |
 |----|------|-------------|
-| T-P2 | Source PDOs with an e-load through a PD tester: 5 V/3 A, 9 V/2 A for 1 h | voltage within PD limits, shell < 45 C |
-| T-P3 | Sink from 5 V/1.5 A legacy, 9 V/3 A and 15 V/2 A PD chargers | 2 A charge current, correct termination, timer |
-| T-P4 | Radio rail transient when keying at 6.0 V battery | +4V0 dip < 100 mV, no module reset, no audio click > -40 dBFS |
+| T-P2 | PHONE port source PDOs with an e-load through a PD tester: 5 V/3 A, 9 V/2 A, 12 V/1.5 A for 1 h | voltage within PD limits, shell < 45 C |
+| T-P3 | CHARGE port sink from 5 V/1.5 A legacy, 9 V/3 A, 15 V/3 A and 20 V/2.25 A PD chargers; the same chargers on the PHONE port | 2 A charge current, correct termination, timer; PHONE port charges the pack without sourcing |
+| T-P10 | Pass-through: 45 W charger on CHARGE, phone (or 18 W e-load) on PHONE, 2 h | phone receives its contract continuously, battery reaches full, no USB link drop, shell temperature logged, throttling steps visible |
+| T-P11 | Pass-through transients: plug/unplug the charger while the phone draws 18 W; plug/unplug the phone while charging | no VBUS glitch on the phone > 10 %, no reset of the pack, PD contracts re-established within 2 s |
+| T-P12 | Weak charger on CHARGE (5 V / 1.5 A) with phone at 18 W | battery supplies the difference, status flags correct |
+| T-P8b | Two chargers, one on each port; charger on PHONE and phone on CHARGE (wrong way round) | no damage, CHARGE input selected, no sourcing on CHARGE ever |
+| T-P4 | Radio rail transient when keying at 6.0 V battery | +4V2 dip < 100 mV, no module reset, no audio click > -40 dBFS |
 | T-P4b | Radio rail ripple in RX | < 10 mVpp at the module, no 2.5 MHz products in the audio |
 | T-P5 | Reserve behaviour | drain to 20 %: source stops, PR_Swap requested, pack trickle-sinks 100 mA; charge to 30 %: source resumes |
 | T-P8 | Faults | VBUS short while sourcing; 20 V applied while sourcing; CC shorted to VBUS; reverse current | no damage, recovery |

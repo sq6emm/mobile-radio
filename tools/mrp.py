@@ -28,10 +28,11 @@ MAX_PAYLOAD = 1024
 # message types
 GET_INFO, SET_CHANNEL, PTT, SET_AUDIO, SET_POWER, DATA_TX, GET_STATUS, KEEPALIVE = range(1, 9)
 SET_MODE, SET_FREQ, SET_IDENTITY, SET_BEACON, POSITION, SEND_MSG, SET_PROFILE = range(9, 16)
-AUDIO_TX, LORA_CONFIG, LORA_TX, SET_DV = 0x10, 0x11, 0x12, 0x13
+AUDIO_TX, SET_DV = 0x10, 0x13          # 0x11/0x12 reserved
 NAK, INFO, ACK, AUDIO_RX, STATUS, DATA_RX = 0x7F, 0x81, 0x82, 0x90, 0x91, 0x92
-MSG_RX, MSG_STATUS, LORA_RX, APRS_RX = 0x93, 0x94, 0x95, 0x96
-TR_FM, TR_LORA433, TR_LORA868 = 0, 1, 2
+MSG_RX, MSG_STATUS, APRS_RX = 0x93, 0x94, 0x96   # 0x95 reserved
+TR_FM = 0
+PWR_FLAGS = ["PHONE_ATTACHED", "CHARGE_ATTACHED", "CHARGER_CONTRACT", "PASSTHROUGH", "INPUT_IS_PHONE"]
 MSG_STATE = {0: "free", 1: "pending", 2: "sent_wait_ack", 3: "acked", 4: "failed"}
 APRS_KIND = {0: "unknown", 1: "position", 2: "message", 3: "ack", 4: "rej", 5: "status"}
 TYPE_NAMES = {v: k for k, v in globals().items() if k.isupper() and isinstance(v, int) and k not in
@@ -151,9 +152,6 @@ def pack_set_profile(soundcard):
     return bytes([1 if soundcard else 0])
 
 
-def pack_lora_config(radio, preset=0, freq_hz=0, sf=9, bw=4, cr=1, power_dbm=10, sync=0x1424, rx_pref=0):
-    return struct.pack("<BBI3BbHB", radio, preset, freq_hz, sf, bw, cr, power_dbm, sync, rx_pref)
-
 
 def pack_set_dv(on):
     return bytes([1 if on else 0])
@@ -168,11 +166,6 @@ def unpack_msg_status(p):
     mid, st = struct.unpack("<HB", p)
     return {"id": mid, "state": MSG_STATE.get(st, st)}
 
-
-def unpack_lora_rx(p):
-    radio, rssi, snr = struct.unpack_from("<BhB", p)
-    return {"radio": 433 if radio == 0 else 868, "rssi_dbm": rssi, "snr_db": struct.unpack("<b", bytes([snr]))[0],
-            "payload": p[4:]}
 
 
 def unpack_aprs_rx(p):
@@ -196,12 +189,12 @@ def unpack_info(p):
 STATUS_FLAGS = ["PTT", "SQ_OPEN", "TX_INHIBIT", "CHARGING", "SOURCING", "FAULT", "RADIO_OK", "HOST_ALIVE"]
 
 
-STATUS_FMT = "<HbBHhBbHhBHHH4BI"   # 29 bytes
+STATUS_FMT = "<HbBHhBbHhBHHH4BIHH"   # 33 bytes
 
 
 def unpack_status(p):
     (flags, rssi, ch, batt_mv, batt_ma, soc, temp, vbus_mv, vbus_ma, pd_role,
-     pd_mv, pd_ma, tx_rem, mode, profile, dv, lora, freq) = struct.unpack(STATUS_FMT, p)
+     pd_mv, pd_ma, tx_rem, mode, profile, dv, pwr, freq, in_mv, in_ma) = struct.unpack(STATUS_FMT, p)
     return {"flags": [n for i, n in enumerate(STATUS_FLAGS) if flags & (1 << i)],
             "rssi_dbm": rssi, "channel": ch, "batt_mv": batt_mv, "batt_ma": batt_ma, "soc_pct": soc,
             "temp_c": temp, "vbus_mv": vbus_mv, "vbus_ma": vbus_ma,
@@ -210,8 +203,8 @@ def unpack_status(p):
             "tx_remaining_s": tx_rem, "mode": "HAM" if mode else "PMR446",
             "profile": "soundcard" if profile else "app",
             "dv": {"enabled": bool(dv & 1), "sync": bool(dv & 2)},
-            "lora": {"433_listen": bool(lora & 1), "433_tx": bool(lora & 2), "868_listen": bool(lora & 4), "868_tx": bool(lora & 8)},
-            "freq_hz": freq}
+            "power": [n for i, n in enumerate(PWR_FLAGS) if pwr & (1 << i)],
+            "freq_hz": freq, "charge_port": {"mv": in_mv, "ma": in_ma}}
 
 
 # --------------------------------------------------------------- transports
@@ -272,7 +265,6 @@ def show(t, p):
     elif t == AUDIO_RX: print(f"AUDIO_RX {len(p)} bytes")
     elif t == MSG_RX: print("MSG_RX", unpack_msg_rx(p))
     elif t == MSG_STATUS: print("MSG_STATUS", unpack_msg_status(p))
-    elif t == LORA_RX: print("LORA_RX", unpack_lora_rx(p))
     elif t == APRS_RX: print("APRS_RX", unpack_aprs_rx(p))
     else: print(TYPE_NAMES.get(t, hex(t)), p.hex())
 
@@ -306,19 +298,14 @@ def main():
     p = sub.add_parser("identity"); p.add_argument("--callsign", default=""); p.add_argument("--ssid", type=int, default=0)
     p.add_argument("--nick", default="")
     p = sub.add_parser("beacon"); p.add_argument("state", choices=["on", "off"]); p.add_argument("--interval", type=int, default=600)
-    p.add_argument("--fixed", action="store_true"); p.add_argument("--transport", type=int, default=TR_FM)
+    p.add_argument("--fixed", action="store_true")
     p.add_argument("--symbol", default="/["); p.add_argument("--path", default="WIDE1-1"); p.add_argument("--comment", default="")
     p = sub.add_parser("pos"); p.add_argument("lat", type=float); p.add_argument("lon", type=float)
     p.add_argument("--alt", type=int, default=0); p.add_argument("--speed", type=int, default=0); p.add_argument("--course", type=int, default=-1)
-    p = sub.add_parser("msg"); p.add_argument("to"); p.add_argument("text"); p.add_argument("--transport", type=int, default=TR_FM)
+    p = sub.add_parser("msg"); p.add_argument("to"); p.add_argument("text")
     p = sub.add_parser("profile"); p.add_argument("profile", choices=["app", "soundcard"])
-    p = sub.add_parser("lora"); p.add_argument("radio", choices=["433", "868"])
-    p.add_argument("--preset", type=int, default=0, help="0 custom 1 aprs433 2 meshtastic868 3 pack433 4 pack868")
-    p.add_argument("--mhz", type=float, default=0); p.add_argument("--sf", type=int, default=9); p.add_argument("--bw", type=int, default=4)
-    p.add_argument("--cr", type=int, default=1); p.add_argument("--power", type=int, default=10); p.add_argument("--sync", type=lambda x: int(x, 0), default=0x1424)
-    p.add_argument("--listen", action="store_true", help="prefer this LoRa receiver over FM when idle (433 only)")
     p = sub.add_parser("dv"); p.add_argument("state", choices=["on", "off"])
-    p = sub.add_parser("listen", help="print every incoming message / position / LoRa frame")
+    p = sub.add_parser("listen", help="print every incoming message / position / raw frame")
     a = ap.parse_args()
     if a.cmd == "vectors":
         return cmd_vectors(a)
@@ -356,24 +343,20 @@ def main():
     elif a.cmd == "identity":
         s.send(SET_IDENTITY, pack_set_identity(a.callsign.upper(), a.ssid, a.nick)); r = s.poll(want=ACK); show(*r[::2]) if r else print("no reply")
     elif a.cmd == "beacon":
-        s.send(SET_BEACON, pack_set_beacon(a.state == "on", not a.fixed, a.interval, a.symbol[0], a.symbol[1], a.transport, a.path, a.comment))
+        s.send(SET_BEACON, pack_set_beacon(a.state == "on", not a.fixed, a.interval, a.symbol[0], a.symbol[1], TR_FM, a.path, a.comment))
         r = s.poll(want=ACK); show(*r[::2]) if r else print("no reply")
     elif a.cmd == "pos":
         s.send(POSITION, pack_position(a.lat, a.lon, a.alt, a.speed, a.course))
     elif a.cmd == "msg":
-        s.send(SEND_MSG, pack_send_msg(a.transport, a.to.upper(), a.text)); r = s.poll(want=ACK); show(*r[::2]) if r else print("no reply")
+        s.send(SEND_MSG, pack_send_msg(TR_FM, a.to.upper(), a.text)); r = s.poll(want=ACK); show(*r[::2]) if r else print("no reply")
     elif a.cmd == "profile":
         s.send(SET_PROFILE, pack_set_profile(a.profile == "soundcard")); r = s.poll(want=ACK); show(*r[::2]) if r else print("no reply (re-enumerating)")
-    elif a.cmd == "lora":
-        s.send(LORA_CONFIG, pack_lora_config(0 if a.radio == "433" else 1, a.preset, int(round(a.mhz * 1e6)), a.sf, a.bw, a.cr,
-                                             a.power, a.sync, 1 if a.listen else 0))
-        r = s.poll(want=ACK); show(*r[::2]) if r else print("no reply")
     elif a.cmd == "dv":
         s.send(SET_DV, pack_set_dv(a.state == "on")); r = s.poll(want=ACK); show(*r[::2]) if r else print("no reply")
     elif a.cmd == "listen":
         while True:
             r = s.poll(timeout=5.0)
-            if r and r[0] in (MSG_RX, MSG_STATUS, LORA_RX, APRS_RX, DATA_RX): show(r[0], r[2])
+            if r and r[0] in (MSG_RX, MSG_STATUS, APRS_RX, DATA_RX): show(r[0], r[2])
 
 
 if __name__ == "__main__":

@@ -155,8 +155,10 @@ size_t mrp_pack_status(const mrp_status_t *m, uint8_t *buf)
     put16(buf + 15, m->pd_mv);
     put16(buf + 17, m->pd_ma);
     put16(buf + 19, m->tx_remaining_s);
-    buf[21] = m->mode; buf[22] = m->profile; buf[23] = m->dv_flags; buf[24] = m->lora_flags;
+    buf[21] = m->mode; buf[22] = m->profile; buf[23] = m->dv_flags; buf[24] = m->pwr_flags;
     put32(buf + 25, m->freq_hz);
+    put16(buf + 29, m->in_mv);
+    put16(buf + 31, m->in_ma);
     return MRP_STATUS_LEN;
 }
 
@@ -200,13 +202,6 @@ size_t mrp_pack_msg_status(const mrp_msg_status_t *m, uint8_t *buf)
     put16(buf, m->id); buf[2] = m->state;
     return MRP_MSG_STATUS_LEN;
 }
-size_t mrp_pack_lora_config(const mrp_lora_config_t *m, uint8_t *buf)
-{
-    buf[0] = m->radio; buf[1] = m->preset; put32(buf + 2, m->freq_hz);
-    buf[6] = m->sf; buf[7] = m->bw; buf[8] = m->cr; buf[9] = (uint8_t)m->power_dbm;
-    put16(buf + 10, m->sync_word); buf[12] = m->rx_pref;
-    return MRP_LORA_CONFIG_LEN;
-}
 bool mrp_unpack_set_freq(const uint8_t *buf, uint16_t len, mrp_set_freq_t *m)
 {
     if (len != MRP_SET_FREQ_LEN) return false;
@@ -243,14 +238,6 @@ bool mrp_unpack_msg_status(const uint8_t *buf, uint16_t len, mrp_msg_status_t *m
     m->id = get16(buf); m->state = buf[2];
     return true;
 }
-bool mrp_unpack_lora_config(const uint8_t *buf, uint16_t len, mrp_lora_config_t *m)
-{
-    if (len != MRP_LORA_CONFIG_LEN) return false;
-    m->radio = buf[0]; m->preset = buf[1]; m->freq_hz = get32(buf + 2);
-    m->sf = buf[6]; m->bw = buf[7]; m->cr = buf[8]; m->power_dbm = (int8_t)buf[9];
-    m->sync_word = get16(buf + 10); m->rx_pref = buf[12];
-    return true;
-}
 
 size_t mrp_pack_send_msg(uint8_t *buf, size_t cap, uint8_t transport, const char *to, const char *text)
 {
@@ -273,12 +260,6 @@ size_t mrp_pack_msg_rx(uint8_t *buf, size_t cap, uint8_t transport, const char *
     if (tl > 67 || cap < MRP_MSG_RX_HDR + tl) return 0;
     buf[0] = transport; put_str(buf + 1, from, 10); put_str(buf + 11, id, 6); memcpy(buf + MRP_MSG_RX_HDR, text, tl);
     return MRP_MSG_RX_HDR + tl;
-}
-size_t mrp_pack_lora_rx(uint8_t *buf, size_t cap, uint8_t radio, int16_t rssi, int8_t snr, const uint8_t *pl, size_t n)
-{
-    if (n > 255 || cap < MRP_LORA_RX_HDR + n) return 0;
-    buf[0] = radio; put16(buf + 1, (uint16_t)rssi); buf[3] = (uint8_t)snr; memcpy(buf + MRP_LORA_RX_HDR, pl, n);
-    return MRP_LORA_RX_HDR + n;
 }
 size_t mrp_pack_aprs_rx(uint8_t *buf, size_t cap, uint8_t transport, const char *src, uint8_t kind,
                         int32_t lat_e7, int32_t lon_e7, int16_t course, uint16_t speed, const char *text)
@@ -337,8 +318,10 @@ bool mrp_unpack_info(const uint8_t *buf, uint16_t len, mrp_info_t *m)
 bool mrp_unpack_status(const uint8_t *buf, uint16_t len, mrp_status_t *m)
 {
     if (len != MRP_STATUS_LEN) return false;
-    m->mode = buf[21]; m->profile = buf[22]; m->dv_flags = buf[23]; m->lora_flags = buf[24];
+    m->mode = buf[21]; m->profile = buf[22]; m->dv_flags = buf[23]; m->pwr_flags = buf[24];
     m->freq_hz = get32(buf + 25);
+    m->in_mv = get16(buf + 29);
+    m->in_ma = get16(buf + 31);
     m->flags = get16(buf);
     m->rssi_dbm = (int8_t)buf[2];
     m->channel = buf[3];

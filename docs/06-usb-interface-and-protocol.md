@@ -2,16 +2,18 @@
 
 ## 6.1 Enumeration: two profiles
 
-USB 2.0 full speed (12 Mbit/s), bus-powered descriptor (`bMaxPower` 100 mA,
-the pack really runs from its own battery) so that no host ever has to supply
-more than it would to a mouse. The pack has two USB personalities and
-re-enumerates (soft disconnect) when switching; the choice is persisted.
+USB data exists on the PHONE port only; the CHARGE port is power-only
+(docs/03). USB 2.0 full speed (12 Mbit/s), bus-powered descriptor
+(`bMaxPower` 100 mA, the pack really runs from its own battery) so that no
+host ever has to supply more than it would to a mouse. The pack has two USB
+personalities and re-enumerates (soft disconnect) when switching; the choice
+is persisted.
 
 **Profile 0 "app"** (default): for the phone app and bench tools.
 
 | # | Interface | Class | Endpoints | Purpose |
 |---|-----------|-------|-----------|---------|
-| 0 | MRP | 0xFF vendor, subclass 0x01, protocol 0x01 | EP1 OUT bulk 64 B, EP1 IN bulk 64 B | control, status, PCM audio, messages, LoRa, APRS (this document) |
+| 0 | MRP | 0xFF vendor, subclass 0x01, protocol 0x01 | EP1 OUT bulk 64 B, EP1 IN bulk 64 B | control, status, PCM audio, messages, APRS (this document) |
 | 1-2 | Serial | CDC-ACM | EP2 INT, EP3 bulk in/out | debug console / AT pass-through; RTS also keys PTT so Direwolf-style programs work even in this profile |
 
 **Profile 1 "sound-card"** (Digirig-compatible): for iOS and for existing
@@ -82,13 +84,12 @@ Host to device:
 | 0x09 | SET_MODE | mode u8 (0 PMR446, 1 HAM 70 cm) | ACK (INHIBITED when no callsign stored) |
 | 0x0A | SET_FREQ | hz u32, squelch u8, power u8, ctcss_tx u8, ctcss_rx u8, bandwidth u8 (HAM mode only, 430-440 MHz on 12.5 kHz) | ACK |
 | 0x0B | SET_IDENTITY | callsign char[8], ssid u8, nickname char[8] (empty = keep); a valid callsign unlocks HAM mode | ACK (detail = unlocked) |
-| 0x0C | SET_BEACON | enabled u8, smart u8, interval_s u16, sym_table u8, sym_code u8, transport u8 (0 FM, 1 LoRa433, 2 LoRa868, 3 FM+LoRa433), path char[16], comment char[32] | ACK |
+| 0x0C | SET_BEACON | enabled u8, smart u8, interval_s u16, sym_table u8, sym_code u8, transport u8 (0 = FM, the only value), path char[16], comment char[32] | ACK |
 | 0x0D | POSITION | lat_e7 i32, lon_e7 i32, alt_m i16, speed_kmh u16, course_deg i16 (-1 none), valid u8 | - |
-| 0x0E | SEND_MSG | transport u8, to char[10], text 1-67 bytes | ACK (detail = message id) |
+| 0x0E | SEND_MSG | transport u8 (0 = FM), to char[10], text 1-67 bytes | ACK (detail = message id) |
 | 0x0F | SET_PROFILE | profile u8 (0 app, 1 sound-card) | ACK, then re-enumeration |
 | 0x10 | AUDIO_TX | 640 bytes s16le PCM, 16 kHz, 20 ms | - |
-| 0x11 | LORA_CONFIG | radio u8 (0 = 433, 1 = 868), preset u8 (0 custom, 1 LoRa-APRS 433, 2 Meshtastic EU_868 PHY, 3 pack 433, 4 pack 868), freq_hz u32, sf u8, bw u8 (4 = 125 k, 5 = 250 k, 6 = 500 k), cr u8 (1-4), power_dbm i8, sync u16, rx_pref u8 (433: prefer LoRa receiver over FM when idle) | ACK |
-| 0x12 | LORA_TX | radio u8, raw payload 1-255 bytes | ACK |
+| 0x11, 0x12 | reserved | were LoRa configuration / raw TX; removed with the single-radio decision, numbers not reused | - |
 | 0x13 | SET_DV | enabled u8 (FreeDV 2400B; HAM mode only) | ACK |
 
 Device to host:
@@ -102,13 +103,16 @@ Device to host:
 | 0x92 | DATA_RX | raw AX.25 frame as received on FM (for logging / KISS-style apps) |
 | 0x93 | MSG_RX | transport u8, from char[10], id char[6], text |
 | 0x94 | MSG_STATUS | id u16, state u8 (1 pending, 2 sent waiting ack, 3 acked, 4 failed) |
-| 0x95 | LORA_RX | radio u8, rssi_dbm i16, snr_db i8, raw payload |
+| 0x95 | reserved | was LoRa RX |
 | 0x96 | APRS_RX | transport u8, src char[10], kind u8 (1 position, 5 status), lat_e7 i32, lon_e7 i32, course i16, speed_kmh u16, comment/text |
 | 0x7F | NAK | same layout as ACK, for malformed frames |
 
-STATUS is 29 bytes: the 21 bytes above followed by mode u8, profile u8,
-dv_flags u8 (bit0 enabled, bit1 in sync), lora_flags u8 (bit0 433 listening,
-bit1 433 TX, bit2 868 listening, bit3 868 TX), freq_hz u32.
+STATUS is 33 bytes: the 21 bytes above (which describe the PHONE port's
+VBUS and contract) followed by mode u8, profile u8, dv_flags u8 (bit0
+enabled, bit1 in sync), pwr_flags u8 (bit0 PHONE attached, bit1 CHARGE
+attached, bit2 PD contract on CHARGE, bit3 pass-through active, bit4 the pack
+is powered through the PHONE port), freq_hz u32, in_mv u16 and in_ma u16 (the
+CHARGE port).
 
 Rules:
 

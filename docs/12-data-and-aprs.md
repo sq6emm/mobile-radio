@@ -1,6 +1,6 @@
 # 12. Packet data, APRS and text messages over FM
 
-Everything in this chapter rides on the ordinary FM voice path of the SA818:
+Everything in this chapter rides on the ordinary FM voice path of the SA818S:
 audio tones into MIC_IN, audio tones out of AF_OUT. No hardware beyond the
 voice design is required; the firmware modules are `afsk`, `ax25`, `aprs`,
 `msg`, `beacon` and `arbiter` (all host-tested).
@@ -63,8 +63,8 @@ last known position is beaconed with an age flag in the comment.
   duplicates (same sender and id within the last 16) are acknowledged again
   but flagged so the app does not show them twice.
 - Messages to a group use addressee `ALL` or a group nickname and no id.
-- The same layer is used over LoRa (docs/13); the `transport` field of
-  `SEND_MSG` selects FM, LoRa 433 or LoRa 868.
+- The `transport` field of `SEND_MSG` stays in the wire format (0 = FM, the
+  only transport in this product).
 
 ## 12.5 Beacons (`beacon.c`)
 
@@ -75,10 +75,9 @@ between rate beacons protects the channel.
 
 ## 12.6 Channel arbitration (`arbiter.c`, `ptt_guard.c`)
 
-- Voice (phone or button) > digital voice > FM data > LoRa 433 on the shared
-  antenna path. Voice pre-empts an ongoing data frame immediately (the frame
-  is lost and retried later); data never interrupts voice and is refused
-  while voice is keyed.
+- Voice (phone or button) = digital voice > data. Voice pre-empts an ongoing
+  data frame immediately (the frame is lost and retried later); data never
+  interrupts voice and is refused while voice is keyed.
 - Data TX uses the same `ptt_guard` as voice (source `PTT_SRC_DATA`), so the
   time-out, thermal inhibit and busy-channel lockout apply. Data frames use
   busy-channel detection by default (wait up to 5 s for the squelch to close,

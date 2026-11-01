@@ -1,6 +1,6 @@
 # Sheet 2: rails and MCU
 
-## U7 TPS62130 (+4V0, 3 A)
+## U7 TPS62130 (+4V2, 3 A)
 
 | Pin | Net |
 |-----|-----|
@@ -8,15 +8,15 @@
 | EN | RADIO_RAIL_EN (MCU, pulled low at reset) |
 | FSW | +3V3D (2.5 MHz) ; PG unused ; DEF = +3V3D forced PWM (check datasheet pin function) |
 | SW | L2 1.0 uH 3 A |
-| VOS/FB | divider for 4.00 V: R1 = 365 k, R2 = 100 k with 0.8 V reference -> V = 0.8 x (1 + 365/100) = 3.72... use R1 = 400 k, R2 = 100 k -> 4.00 V |
-| OUT | +4V0_RAW -> L3 1 uH + 22 uF -> FB 600R -> +4V0 (100 uF + 100 nF + 1 nF at the module) |
+| VOS/FB | divider for 4.20 V with the 0.8 V reference: R1 = 425 k, R2 = 100 k -> 0.8 x (1 + 4.25) = 4.20 V |
+| OUT | +4V2_RAW -> L3 1 uH + 22 uF -> FB 600R -> +4V2 (100 uF + 100 nF + 1 nF at the module) |
 
 ## LDOs
 
 | Part | In | Out | Load |
 |------|----|-----|------|
-| U8 TPS7A2033 | +4V0 | +3V3D | MCU, PD controller, gauge, LEDs, module UART level |
-| U9 LP5907-3.3 | +4V0 | +3V3A | op-amps, mic bias, VREF+ of MCU |
+| U8 TPS7A2033 | +4V2 | +3V3D | MCU, PD controllers, gauge, LEDs, module UART level |
+| U9 LP5907-3.3 | +4V2 | +3V3A | op-amps, mic bias, VREF+ of MCU |
 
 +3V3D is always on (needed to configure the PD controller); the MCU runs
 from it and enables the radio rail with `RADIO_RAIL_EN`.
@@ -33,7 +33,8 @@ from it and enables the radio rail with `RADIO_RAIL_EN`.
 | ADC1_IN4 PA4? reserved for DAC: DAC1_OUT1 = PA4 | AUDIO_TX | DMA1, TIM6 trigger |
 | ADC3_IN10 PC0, IN11 PC1 | NTC_PA, NTC_BOARD | |
 | I2C1 PB6 SCL, PB7 SDA | I2C1 | 2.2 k pull-ups to +3V3D |
-| IRQs PB8 PD_IRQ, PB9 CHG_IRQ, PB12 GAUGE_ALERT | EXTI | |
+| IRQs PB8 PD_IRQ, PB9 CHG_IRQ, PB12 GAUGE_ALERT, PB3 CHG_PD_IRQ (STUSB4500) | EXTI | |
+| GPIO PB4 SRC_EN (TPS55288), PB5 ACFET1_OVERRIDE | | sourcing on PHONE: SRC_EN high, VAC1 path forced off |
 | GPIO PC2 RADIO_RAIL_EN, PC3 SPK_EN, PC4 MIC_EN, PC5 CHG_CE, PC6 CHG_OTG, PC7 TEST_PORT_SENSE | | TEST_PORT_SENSE: MM8130 has no switch sense; use a pogo/ground contact under the cover instead |
 | Buttons PC8 PTT_BTN, PC9 PWR_BTN (wake-capable: use PA0 WKUP for PWR_BTN and move AUDIO_RX to PA5/ADC1_IN5) | | |
 | LEDs PC10, PC11 | | |

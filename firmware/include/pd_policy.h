@@ -1,11 +1,16 @@
 /*
- * USB-C Power Delivery role policy for the battery pack.
+ * USB-C Power Delivery role policy for the PHONE port of the battery pack.
  *
  * Goal state with a phone attached: the pack is the power SOURCE (it charges
  * the phone) and the data UFP (the phone is the USB host and talks to the
  * radio). Type-C does not give that combination by itself, so this policy
  * asks the PD controller for PR_Swap / DR_Swap as required, backs off on
  * rejection, and hands power back when the battery reaches the reserve level.
+ *
+ * The CHARGE port is a plain sink handled by its own controller; its only
+ * influence here is pd_policy_set_external_power(): while a charger feeds the
+ * pack, sourcing to the phone continues regardless of the state of charge
+ * (pass-through charging).
  *
  * It is a pure state machine (no I/O) so that it can be unit tested; the port
  * layer translates actions into TPS25751 / FUSB302 register writes.
@@ -72,6 +77,7 @@ typedef struct {
     uint8_t pr_attempts, dr_attempts;
     uint32_t next_swap_ms;
     bool source_paused_low_batt;
+    bool external_power;         /* charger present on the CHARGE port */
     uint8_t soc_pct;
 } pd_policy_t;
 
@@ -83,6 +89,9 @@ pd_action_t pd_policy_event(pd_policy_t *p, const pd_event_t *ev, uint32_t now_m
 
 /* Call periodically (e.g. 1 Hz) with the fuel-gauge state of charge. */
 pd_action_t pd_policy_tick(pd_policy_t *p, uint32_t now_ms, uint8_t soc_pct);
+
+/* Charger present on the CHARGE port: keep sourcing to the phone whatever the SoC. */
+void pd_policy_set_external_power(pd_policy_t *p, bool present, uint32_t now_ms);
 
 /* True when the pack is in its goal configuration (source + UFP). */
 bool pd_policy_goal_reached(const pd_policy_t *p);

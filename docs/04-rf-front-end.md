@@ -1,40 +1,54 @@
 # 4. RF front end and filters
 
-## 4.1 Radio module
+## 4.1 Radio module: NiceRF SA818S-CE (UHF)
 
-SA818U-V4 (NiceRF) or DRA818U (Dorji), 400-480 MHz FM transceiver module:
+Chosen in the November 2026 review after checking availability: the original
+SA818 V4 is still sold, but NiceRF's current revision is the **SA818S**, and
+its **SA818S-CE** variant is CE-RED certified as a module and carried by
+distributors (LCSC part C19632390, NiceRF's own shop, Tindie, resellers).
+NiceRF states that the SA818S keeps the SA818's pins, size and UART command
+set and adds an LNA (+4 dB sensitivity) and the ability to read back the
+configuration. The firmware driver therefore stays as written; pin names
+below must still be checked against the datasheet revision shipped
+(**VERIFY**, datasheet V1.3 / Rev 1.7 exist in parallel).
 
-| Parameter | Value (datasheet, **VERIFY** per revision) |
-|-----------|---------------------------------------------|
-| Supply | 3.3-4.5 V, design uses 4.0 V |
-| RF output | 1 W (H) / 0.5 W (L), selected by the H/L pin |
-| TX current | <= 750 mA at 1 W |
-| RX current | ~60-70 mA; power-down < 1 uA via PD pin |
-| Sensitivity | -124 dBm (12 dB SINAD) |
-| Channel spacing | 12.5 / 25 kHz, 12.5 kHz used |
-| Control | UART 9600 8N1, `AT+DMOSETGROUP`, `AT+DMOSETVOLUME`, `AT+SETFILTER`, `AT+SETTAIL`, `RSSI?` |
-| Audio | MIC_IN (electret level), AF_OUT (line level, needs amplifier), built-in pre/de-emphasis, 300 Hz HPF, 3 kHz LPF, CTCSS/DCS |
-| Antenna port | 50 ohm pin, internal T/R switch and basic harmonic filter |
+| Parameter | SA818S-CE (datasheet / vendor pages) |
+|-----------|--------------------------------------|
+| Frequency | UHF 400-480 MHz (VHF variant 134-174 MHz not used) |
+| Supply | 3.3-5.5 V, 4.2 V typical: the design rail is **4.2 V** |
+| RF output | 1 W (H) / 0.5 W (L) |
+| TX current | 650-750 mA at 1 W, 450-550 mA at 0.5 W |
+| RX current | ~60 mA; power-down <= 1 uA |
+| Sensitivity | -124 dBm (LNA, +4 dB over SA818) |
+| Channel spacing | 12.5 / 25 kHz |
+| Control | UART 9600 8N1, SA818 command set (`AT+DMOSETGROUP` etc.), configuration read-back on the S |
+| RF chip | RDA1846S + PA, built-in MCU |
+| Size | 36 x 19 x 4 mm, shielded |
+| Certification | CE-RED (module level; the product is still assessed as a whole) |
+
+Alternatives looked at and why not now:
+
+| Module | What it is | Verdict |
+|--------|------------|---------|
+| SA818 V4, DRA818U | the older generation, same interface, no LNA | works, but no reason to prefer it; keep as second source |
+| SA868S | 2 W version | the extra power is not usable in PMR446 and costs heat; no |
+| SA828 | all-in-one with speaker amplifier and channel memory, UART/PC configurable | fine for a standalone radio; our MCU already does that work; no |
+| DMR828S / DMR818S | DMR Tier II digital voice with AMBE++ vocoder, 2 W, UART 57600, FCC/CE | the only path to standards-based digital voice (DMR446 interop); ~60 USD and a different command set. Noted as a possible later "digital" variant, not for v1 |
 
 The module is a complete radio and covers both operating modes (PMR446 at
 446 MHz and the 70 cm amateur band 430-440 MHz); everything in this chapter
 is about making its single antenna pin legal, clean and robust next to a
-phone, and about sharing the antenna with the 433 MHz LoRa module.
+phone.
 
 ## 4.2 Signal chain
 
 ```
-SA818 ANT -> C_dc -> [LPF: C1 L2 C3 L4 C5 L6 C7] --\
-                                                     [SPDT PE4259] -> [BPF 2-pole 439 MHz, 50 MHz wide] ->
-LoRa 433 module ANT -> [shunt PIN limiter pad] ----/      [RF test switch MM8130] -> [match] -> [ESD] -> helix
-
-LoRa 868 module ANT -> [10 pF series, shunt L pad] -> printed IFA (own antenna)
+SA818S ANT -> C_dc -> [LPF: C1 L2 C3 L4 C5 L6 C7] -> [BPF 2-pole 439 MHz, 50 MHz wide] ->
+  [RF test switch MM8130] -> [match: shunt L / series C / shunt C pads] -> [ESD] -> helix
 ```
 
-The FM path and the 433 MHz LoRa module share the helix through the switch;
-the arbiter (`firmware/src/arbiter.c`) points it at whoever transmits, and
-at the preferred receiver otherwise (FM by default). The 868 MHz LoRa module
-is fully independent (docs/13).
+One radio, one antenna, no switches: the only RF transmitter in the product
+is this module (R16).
 
 - 50 ohm coplanar waveguide with ground, 0.3 mm wide / 0.2 mm gap on 0.2 mm
   prepreg to L2 (adjust to stack-up), ground vias every 2 mm along the line.
@@ -93,7 +107,7 @@ which is near the module's blocking limit (R7). A 446 MHz band-pass adds
 30 dB where it matters, and also attenuates TETRA (380 MHz) and LPD/ISM 433 MHz
 traffic that the LPF passes unfiltered.
 
-With the 70 cm amateur mode and LoRa-APRS at 433.775 MHz the filter must
+With the 70 cm amateur mode the filter must
 pass 430-446.2 MHz, so it is centred at 439 MHz and widened to 50 MHz
 (`filter_design.py --bpf-f0 439e6 --bpf-bw 50e6`): 2-pole Butterworth,
 capacitively coupled shunt resonators, L = 12 nH:
@@ -130,9 +144,7 @@ Threats to the -120 dBm receiver:
 | Source | Mechanism | Mitigation |
 |--------|-----------|------------|
 | Phone cellular TX 700-960 MHz, +23 dBm | front-end blocking, reciprocal mixing | LPF (35-50 dB), BPF (26-29 dB), antenna at the pack top edge away from the phone's antennas (usually bottom and top edges: keep the pack antenna off-centre, top-left) |
-| LoRa 868 TX (+22 dBm) 30 mm from the helix | 869 MHz is 1.98 x 439 MHz: just below the FM receiver's 2nd harmonic image; direct blocking | LPF + BPF give > 60 dB at 869 MHz; the 868 module's own harmonic filter; firmware may blank FM audio for the 0.3-1 s burst if T-L3 shows a click |
-| FM TX 1 W into the LoRa 433 input through the SPDT | 25 dB switch isolation leaves ~+5 dBm at the SX1262 (abs. max +10 dBm) | LoRa 433 in standby during FM TX; shunt PIN limiter footprint; T-L2 |
-| LoRa 433 TX (+22 dBm) | into the SA818 through the switch's off port: -3 dBm | SA818 input tolerates it (handhelds see this from nearby radios); FM audio muted while LoRa 433 owns the antenna anyway |
+| TPS55288 and BQ25798 switching at 18-45 W | conducted/radiated harmonics; both sit under the bottom edge near the USB ports, far from the antenna | separate shield can over the power section, input/output pi filters, switch node minimal; T-R6b covers it with pass-through running |
 | Phone 1.7-2.7 GHz, 3.5 GHz, Wi-Fi, BT | out-of-band blocking, PA harmonics landing in band? (none of 446 MHz x n falls in these; the reverse, phone TX / n, does not land on 446 either) | LPF > 70 dB; metal can over the module |
 | Phone display/CPU broadband noise, Qi coil | near-field pickup by the pack antenna and PCB traces | full ground plane facing the phone, shield cans, antenna on the far edge |
 | Pack buck converters (750 kHz, 2.5 MHz) | harmonics at 446 MHz (harmonic #595 / #178) and conducted ripple into the module supply | forced PWM, tiny switch loops, LC post filter, ferrite bead + 100 uF at the module, spread spectrum off during RX |
@@ -147,7 +159,7 @@ feed leaving it.
 
 ## 4.6 Power and digital filtering on the RF side
 
-- +4V0 to module: 1 uH + 22 uF LC, then 600 ohm @ 100 MHz ferrite bead +
+- +4V2 to module: 1 uH + 22 uF LC, then 600 ohm @ 100 MHz ferrite bead +
   100 uF + 100 nF + 1 nF at the VCC pin.
 - PTT, PD, H/L, SQ, UART: 1 kOhm series + 100 pF to ground at the module
   (low-pass, keeps the 446 MHz field off the MCU and MCU noise off the module).

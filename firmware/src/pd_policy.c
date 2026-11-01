@@ -28,7 +28,8 @@ static pd_action_t act(pd_action_kind_t k, uint32_t arg)
 
 static bool want_source(const pd_policy_t *p)
 {
-    return p->cfg.allow_source && !p->source_paused_low_batt && p->partner_pd && p->partner_drp;
+    bool batt_ok = !p->source_paused_low_batt || p->external_power;   /* pass-through ignores the reserve */
+    return p->cfg.allow_source && batt_ok && p->partner_pd && p->partner_drp;
 }
 
 /* Decide the next step towards the goal from the current roles. */
@@ -130,6 +131,14 @@ pd_action_t pd_policy_event(pd_policy_t *p, const pd_event_t *ev, uint32_t now_m
     return act(PD_ACT_NONE, 0);
 }
 
+void pd_policy_set_external_power(pd_policy_t *p, bool present, uint32_t now_ms)
+{
+    if (p->external_power == present) return;
+    p->external_power = present;
+    p->pr_attempts = 0;
+    p->next_swap_ms = now_ms;     /* re-evaluate immediately: resume or hand back */
+}
+
 pd_action_t pd_policy_tick(pd_policy_t *p, uint32_t now_ms, uint8_t soc_pct)
 {
     p->soc_pct = soc_pct;
@@ -137,7 +146,7 @@ pd_action_t pd_policy_tick(pd_policy_t *p, uint32_t now_ms, uint8_t soc_pct)
         p->source_paused_low_batt = true;
         p->pr_attempts = 0;
         p->next_swap_ms = now_ms;
-        if (p->attached && p->power_role == PD_POWER_SOURCE) {
+        if (p->attached && p->power_role == PD_POWER_SOURCE && !p->external_power) {
             pd_action_t a = next_step(p, now_ms);
             return (a.kind != PD_ACT_NONE) ? a : act(PD_ACT_DISABLE_SOURCE, 0);
         }
