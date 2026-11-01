@@ -1,0 +1,104 @@
+# 6. USB interface and the MRP protocol
+
+## 6.1 Enumeration
+
+USB 2.0 full speed (12 Mbit/s), bus-powered descriptor (`bMaxPower` 100 mA,
+the pack really runs from its own battery) so that no host ever has to supply
+more than it would to a mouse.
+
+| # | Interface | Class | Endpoints | Purpose |
+|---|-----------|-------|-----------|---------|
+| 0 | MRP | 0xFF vendor, subclass 0x01, protocol 0x01 | EP1 OUT bulk 64 B, EP1 IN bulk 64 B | control, status and PCM audio (this document) |
+| 1 | Debug console | CDC-ACM (two interfaces) | EP2 INT, EP3 bulk in/out | firmware log and AT pass-through to the module; optional, compiled out for release |
+| 2-3 | Audio (optional profile) | UAC 1.0 headset: 16 kHz mono in + out | isochronous | only after the host asks (`hal_usb_reenumerate_with_uac`) or when a DIP/menu option selects "generic host" mode |
+
+- VID/PID: development uses pid.codes 0x1209 / 0x0001 (test allocation); a
+  real PID must be obtained before any unit leaves the bench.
+- Microsoft OS 2.0 descriptors bind WinUSB to interface 0 automatically.
+- BOS also carries a WebUSB platform descriptor so a browser-based bench tool
+  can talk to it; not needed by the phone app.
+- Strings: manufacturer, product "mobile-radio PMR446 pack", serial = unique
+  from the MCU UID (also reported in `INFO`).
+
+Why no USB Audio Class by default: Android treats any UAC device as the
+phone's audio output and reroutes ringtones, media and calls to it the moment
+it is plugged in. For a PTT accessory that is wrong. Streaming PCM over the
+vendor interface keeps the phone's audio untouched; the app plays and records
+with `AudioTrack` / `AudioRecord` as it chooses. UAC remains as a profile for
+hosts without an app (iOS), where the pack's own PTT button and channel memory
+are used.
+
+## 6.2 Frame format
+
+```
+offset  size  field
+0       1     SOF = 0xA5
+1       1     type
+2       1     seq        (per-direction counter, wraps; audio uses it for loss detection)
+3       2     len        little-endian payload length, 0..1024
+5       1     HCS        type ^ seq ^ len_lo ^ len_hi
+6       len   payload
+6+len   2     CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over bytes 1..5+len, little-endian
+```
+
+Frames are packed back to back in bulk transfers; a transfer may contain
+several frames and a frame may span transfers. Receivers resynchronise on
+SOF + HCS and verify the CRC. Reference implementations:
+`firmware/src/mrp.c` and `tools/mrp.py`; both are tested against the same
+vector (`A5 03 01 03 00 01 01 00 00 4E CE` = PTT key, seq 1).
+
+## 6.3 Messages
+
+Host to device:
+
+| Type | Name | Payload | Reply |
+|------|------|---------|-------|
+| 0x01 | GET_INFO | - | INFO |
+| 0x02 | SET_CHANNEL | channel u8 (1-16), bandwidth u8 (0), ctcss_tx u8 (0-38), ctcss_rx u8, squelch u8 (0-8), power u8 (0 low / 1 high), flags u8 (bit0 busy-channel lockout) | ACK |
+| 0x03 | PTT | state u8, ttl_ms u16 (keep-alive window, 0 = 2000) | ACK (result BUSY / INHIBITED when refused) |
+| 0x04 | SET_AUDIO | volume u8 (1-8), mic_gain u8 (0-15), filter_flags u8 (bit0 bypass emphasis, bit1 bypass 300 Hz HPF, bit2 bypass 3 kHz LPF) | ACK |
+| 0x05 | SET_POWER | flags u8 (bit0 allow sourcing to phone, bit1 allow charging from port), max_source_w u8, reserve_soc_pct u8 | ACK |
+| 0x06 | DATA_TX | up to 200 bytes of application data (phase 2, AFSK) | ACK |
+| 0x07 | GET_STATUS | - | STATUS |
+| 0x08 | KEEPALIVE | - | - |
+| 0x10 | AUDIO_TX | 640 bytes s16le PCM, 16 kHz, 20 ms | - |
+
+Device to host:
+
+| Type | Name | Payload |
+|------|------|---------|
+| 0x81 | INFO | proto u8, fw_major u8, fw_minor u8, hw_rev u8, caps u32 (bit0 voice, bit1 data, bit2 PD source, bit3 PD sink, bit4 UAC profile), serial char[16], region u8 (0 = EU PMR446), n_channels u8 |
+| 0x82 | ACK | req_type u8, result u8 (0 OK, 1 BAD_LEN, 2 BAD_VALUE, 3 RADIO, 4 BUSY, 5 INHIBITED, 6 UNSUPPORTED), detail u16 |
+| 0x90 | AUDIO_RX | 640 bytes s16le PCM |
+| 0x91 | STATUS | flags u16 (bit0 PTT, 1 squelch open, 2 TX inhibited, 3 charging, 4 sourcing, 5 fault, 6 radio ok, 7 host alive), rssi_dbm i8, channel u8, batt_mv u16, batt_ma i16, soc_pct u8, temp_c i8, vbus_mv u16, vbus_ma i16 (+ = sourcing), pd_role u8 (bit0 source, 1 DFP, 2 contract, 3 partner DRP), pd_mv u16, pd_ma u16, tx_remaining_s u16 |
+| 0x92 | DATA_RX | received data packet (phase 2) |
+| 0x7F | NAK | same layout as ACK, for malformed frames |
+
+Rules:
+
+- Every frame from the host refreshes the keep-alive. While PTT is keyed the
+  host must send something (AUDIO_TX frames do) at least every `ttl_ms`,
+  default 2 s, or the transmitter is released (R8).
+- STATUS is pushed at 1 Hz and immediately on PTT/squelch/fault changes.
+- AUDIO_RX is sent only while the squelch is open (or always, if the app
+  sets squelch 0), so an idle link carries 21 bytes per second.
+- Audio frames carry no timestamps; the 20 ms cadence and `seq` are enough
+  for a jitter buffer of 2-3 frames on the phone (40-60 ms, U2).
+- SET_CHANNEL is refused with BUSY while transmitting.
+
+## 6.4 Bandwidth and latency
+
+PCM 16 kHz x 16 bit = 256 kbit/s per direction plus 1.3 % framing; full-speed
+bulk delivers > 8 Mbit/s, so the bus is never the bottleneck. Latency budget
+phone-mic to RF: 20 ms frame + USB < 2 ms + DAC ring 20 ms = ~42 ms; RF to
+phone speaker: ADC ring 20 ms + USB + Android AudioTrack fast path ~20 ms =
+~45 ms.
+
+## 6.5 Security and robustness
+
+- The device never executes anything from the host; all values are range
+  checked (`pmr446_validate`) and the radio is only ever programmed to the 16
+  legal channels (R1).
+- A host cannot disable the time-out, the thermal inhibit or the ERP cap.
+- Malformed frames are answered with NAK and counted; counters are exposed
+  on the debug console.

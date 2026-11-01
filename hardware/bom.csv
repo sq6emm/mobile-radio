@@ -1,0 +1,46 @@
+ref,qty,part,value_or_type,package,function,alternative,notes
+U1,1,STM32F405RGT6,ARM Cortex-M4 168 MHz USB FS 2xDAC,LQFP-64,MCU,STM32F407VGT6,TinyUSB vendor + CDC + UAC
+U2,1,TPS25751D,USB-C PD3.0 DRP controller I2C,VQFN-32,USB-PD,FUSB302B + MCU PD stack,Try.SRC; EEPROM/I2C configured
+U3,1,BQ25798,1-4S buck-boost charger with OTG,QFN-29,charger / power path,BQ25792,2S 8.4 V 2 A charge; OTG 5/9/12 V
+U4,1,BQ34Z100-G1,multi-cell fuel gauge I2C,TSSOP-14,gauge,firmware coulomb count on BQ25798 ADC,5 mOhm sense
+U5,1,S-8252AAx (Seiko),2S Li-ion protector,SOT-23-6,primary protection,Nisshinbo R5478,with dual N-FET Q1
+U6,1,BQ7718,secondary over-voltage protector,SOT-23,secondary protection,,drives chemical fuse F1
+U7,1,TPS62130,3 A sync buck adjustable 2.5 MHz,QFN-16,+4V0 radio rail,TPS62133 / TPS62913,forced PWM; LC post-filter
+U8,1,TPS7A2033,300 mA low-noise LDO 3.3 V,SOT-23-5,+3V3D,,from +4V0
+U9,1,LP5907-3.3,250 mA ultra-low-noise LDO,SOT-23-5,+3V3A analog,TPS7A2033,separate star ground
+U10,1,SA818U-V4 (NiceRF),UHF FM transceiver module 400-480 MHz 1 W,module 36x19 mm,radio,DRA818U (Dorji),shielded; UART 9600
+U11,1,TLV9062,dual RRIO op-amp,SOT-23-8 / VSSOP-8,audio buffer / AA filter,MCP6002,
+U12,1,TPA6211A1,3 W class-AB mono speaker amp,MSOP-8,standalone speaker,,class-AB to avoid switching noise
+U13,1,TLV9062,dual op-amp,VSSOP-8,DAC reconstruction + mic preamp,,
+MK1,1,SPU0410LR5H-QB,analog MEMS microphone,3.76x2.95 mm,standalone mic,electret 4 mm,
+LS1,1,8 ohm 1 W 28 mm speaker,,,standalone speaker,,magnet outside the ring area
+J1,1,USB4105-GF-A (GCT),USB-C 16-pin receptacle mid-mount,SMD,USB-C,Amphenol 12401610E4#2A,power + USB2 + CC only
+J2,1,MM8130-2600 (Murata),RF test switch connector,SMD,RF test port,MM8430,internal; not user accessible
+D1,1,TPD2E2U06 or USBLC6-2SC6,USB D+/D- TVS 0.5 pF,SOT-23-6 / DFN,ESD USB,,
+D2,1,PESD0402-140,RF ESD diode 0.1-0.2 pF,0402,antenna ESD,,with shunt L of the match
+D3,1,SMBJ24A,VBUS TVS,SMB,USB VBUS,,
+L1,1,2.2 uH 8 A shielded,,7x7 mm,BQ25798 inductor,,
+L2,1,1.0 uH 3 A shielded,,4x4 mm,TPS62130,,
+L3,1,1 uH + FB 600R@100MHz,,0805,+4V0 post-filter,,
+"L_LPF2,L_LPF6",2,22 nH Q>=60 wirewound,,0603,TX LPF,Coilcraft 0603HP-22N / Murata LQW18AN22NG,
+L_LPF4,1,24 nH Q>=60 wirewound,,0603,TX LPF,0603HP-24N,
+"C_LPF1,C_LPF7",2,7.5 pF C0G 50 V,,0402,TX LPF,,
+"C_LPF3,C_LPF5",2,13 pF C0G 50 V,,0402,TX LPF,,
+"L_BPF1,L_BPF2",2,12 nH air-core 4T 1 mm wire on 3 mm (or dielectric 2-pole 446 MHz filter FL1),,,optional BPF resonators,commercial 446 MHz PMR dielectric filter,handles 1.6 A circulating current
+"C_BPF_E1,C_BPF_E2",2,2.2 pF C0G,,0402,BPF end coupling,,
+C_BPF_C,1,0.7 pF C0G (0.5 + 0.2 pads),,0402,BPF coupling,,
+"C_BPF_R1,C_BPF_R2",2,6.8 pF C0G + 1-3 pF trimmer pads,,0402,BPF resonator,,
+"L_M1,C_M1,C_M2",3,pi-match: shunt L / series C / shunt C (values from VNA),,0402/0603,antenna match,,start 15 nH / 10 pF / NP
+ANT1,1,normal-mode helix 60 mm 6 mm 16T on nylon former in TPU boot,,,integral antenna,PCB meander IFA (option B),brass base insert + M3 boss
+FL_CM1,1,90 ohm @100 MHz common-mode choke USB,,0805,USB D+/D-,,
+F1,1,2S chemical fuse (Dexerials SFJ) 6 A,,,secondary protection,,
+Q1,1,dual N-FET 30 V 10 A low Rds,,PowerPAK / TSSOP-8,battery protection switch,,
+BT1,2,Li-ion pouch 3.7 V 4000 mAh 606090-class 0.5C/2C,,70x60x6 mm,battery 2S1P,2S2P 18650 (thicker variant),UN 38.3 + IEC 62133-2 certified cells
+NTC1-3,3,10 k NTC 1 %,,0402 / leaded,cell / PA / charger temperature,,
+MAG1,1,Qi2 MPP / MagSafe ring magnet array N52 with orientation magnet and 0.3 mm steel shunt,,OD ~56 mm,magnetic attachment,adhesive ring accessory for phones without one,centre 80 mm from top edge
+SW1,1,tactile switch 12x6 mm side-actuated,,,PTT button,,under TPU
+SW2,1,tactile switch,,,power / mode,,
+LED1-2,2,bicolour LED,,0603,battery / TX-RX,,
+CAB1,1,USB-C to USB-C 100 mm USB 2.0 3 A,,,phone cable,,no e-marker needed
+SHLD1-2,2,tin shield cans,,,RF area / power area,,
+Y1,1,8 MHz crystal (or 25 MHz for F407 variants),,3225,MCU clock; PLL to 168 MHz,,check USB 48 MHz derivation
