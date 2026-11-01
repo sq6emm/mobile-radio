@@ -42,6 +42,25 @@ requirement they cover.
 | T-R9 | Blocking / spurious response | EN 300 296 methods | per standard |
 | T-R10 | Busy-channel lockout, TOT, keep-alive | functional with a second radio | 180 s TOT, 2 s keep-alive, lockout refuses PTT |
 
+## 11.2b Data, LoRa, digital voice and modes
+
+| ID | Test | Expectation |
+|----|------|-------------|
+| T-D1 | AFSK packet into Direwolf / a hardware TNC from the pack's audio (and from `tools/afsk_wav.py`) | 100 % decode at good signal; frame bytes identical to `firmware/build/vectors` |
+| T-D2 | APRS beacon received by an iGate (HAM mode, 432.500 MHz FM and 433.775 MHz LoRa) | position appears on aprs.fi with the callsign-SSID |
+| T-D3 | Two packs exchange messages over FM and over LoRa 433/868; acks and retries | delivery and `MSG_STATUS` acked; duplicate suppression |
+| T-D4 | Voice pre-emption | PTT during a data frame keys voice within 50 ms; data retried later |
+| T-D5 | Busy-channel behaviour for data | no data TX while the squelch is open; back-off |
+| T-A3 | AFSK deviation | 1200/2200 Hz tones at 3.0 kHz +/- 0.3 kHz peak deviation |
+| T-A4 | Module modulator flatness, all filters bypassed, 20 Hz-6 kHz | record; decides 9600 Bd / M17 feasibility |
+| T-A5 | FreeDV 2400B over the air to an SM1000 or a PC running FreeDV | sync and intelligible audio at >= -110 dBm |
+| T-L1 | LoRa 433/868 TX power and spurious (EN 300 220) at both module ports | <= limits; 433 PMR mode <= 10 mW ERP |
+| T-L2 | FM 1 W TX leakage into the LoRa 433 input | <= +5 dBm measured at the module pin; module survives 1000 keyings; limiter stuffed if > +5 dBm |
+| T-L3 | LoRa 868 TX while receiving weak FM | no audible click / desense <= 3 dB |
+| T-L4 | 868 duty-cycle accounting | TX refused after 6 min of air time per hour in 869.4-869.65 |
+| T-M1b | Mode lock | HAM mode refused without a callsign; PMR caps unchanged after unlock |
+| T-U5 | Sound-card profile with Direwolf (RTS PTT) and FreeDV GUI on a PC, and as a headset on iOS | works without any driver or app of ours |
+
 ## 11.3 Power and USB-C tests
 
 | ID | Test | Expectation |

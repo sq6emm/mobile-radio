@@ -8,6 +8,8 @@
  *   - the transmit time-out (TOT) has not elapsed,
  *   - no inhibit is set (over-temperature, battery critically low, radio fault),
  *   - busy-channel lockout, if enabled, did not find the channel occupied.
+ * Voice (HOST/LOCAL) pre-empts an active DATA transmission; DATA never
+ * pre-empts anything and is refused while a voice source is keyed.
  */
 #ifndef PTT_GUARD_H
 #define PTT_GUARD_H
@@ -17,8 +19,9 @@
 
 typedef enum {
     PTT_SRC_NONE = 0,
-    PTT_SRC_HOST,
-    PTT_SRC_LOCAL,
+    PTT_SRC_HOST,    /* voice from the phone (needs keep-alive) */
+    PTT_SRC_LOCAL,   /* voice from the pack's button */
+    PTT_SRC_DATA,    /* packet / beacon / digital voice frames from firmware; voice pre-empts it */
 } ptt_source_t;
 
 typedef enum {

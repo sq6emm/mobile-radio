@@ -27,6 +27,36 @@ IDs are stable; later documents refer to them. "Shall" = required for v1,
 | R8 | Transmit time-out shall be 180 s with 10 s cool-down; a lost host shall release PTT within 2 s. | Stuck-transmitter protection. |
 | R9 | Should provide a busy-channel lockout option. | Courtesy, and required by some national rules for data. |
 
+### 1.2b Amateur (70 cm) mode
+
+| ID | Requirement | Rationale / acceptance |
+|----|-------------|------------------------|
+| R10 | Shall offer a HAM mode tuning 430.000-440.000 MHz on a 12.5 kHz grid, FM 12.5/25 kHz, up to 1 W conducted, only after a syntactically valid amateur callsign has been stored. | Licensed users; the licence holder is responsible for legal use (docs/10). `bandplan.c`. |
+| R11 | Shall identify with the stored callsign (and SSID) in every AX.25/APRS/LoRa-APRS frame; the app shall remind the operator to identify by voice. | Station identification rules. |
+| R12 | Shall provide APRS position beacons (fixed interval or SmartBeaconing) on 432.500 MHz by default (user settable in band) via 1200 Bd AFSK, and on 433.775 MHz via LoRa-APRS. | docs/12, docs/13. |
+| R13 | Shall provide text messages between stations using the APRS message format with acknowledgements, over FM AFSK and over LoRa, in both modes (callsign in HAM mode, nickname in PMR mode). | Interoperates with any APRS-capable radio or iGate. |
+| R14 | Should provide FreeDV 2400B digital voice (Codec2 1300 bit/s) through the FM path, HAM mode only. | docs/14. |
+| R15 | The audio path shall be flat to >= 6 kHz and sampled at 48 kHz so that 9600 Bd and other audio-coupled digital modes can be added in software later. | Keeps the door open (M17, G3RUH, POCSAG RX). |
+
+### 1.2c LoRa
+
+| ID | Requirement | Rationale / acceptance |
+|----|-------------|------------------------|
+| L1 | Shall contain a 433 MHz SX1262 LoRa transceiver sharing the helix antenna through an RF switch, and an 868 MHz SX1262 transceiver with its own internal antenna. | User decision; docs/13. |
+| L2 | 433 MHz LoRa: 433.050-434.790 MHz; <= 10 mW ERP in PMR (ISM) mode, up to +22 dBm conducted in HAM mode. | EN 300 220 vs amateur licence. |
+| L3 | 868 MHz LoRa: 869.400-869.650 MHz, <= 500 mW ERP, <= 10 % duty cycle (firmware enforced), or 868.0-868.6 MHz <= 25 mW, 1 %. | EN 300 220 Annex B. |
+| L4 | Shall transmit and receive LoRa-APRS frames (433.775 MHz, SF12/BW125/CR4-5) and pack-to-pack messages/positions on both bands. | docs/13. |
+| L5 | FM voice shall pre-empt any LoRa 433 transmission; LoRa 433 shall be held in standby while the FM transmitter is keyed; the 868 radio is independent. | Shared antenna, receiver protection; `arbiter.c`. |
+| L6 | Meshtastic radio settings shall be selectable as a PHY preset; Meshtastic protocol interoperability is a separate later effort. | Honest scope. |
+
+### 1.2d Digital voice
+
+| ID | Requirement |
+|----|-------------|
+| D1 | FreeDV 2400B TX and RX in firmware (STM32F405 class CPU), speech 8 kHz, modem 48 kHz through the FM audio path. |
+| D2 | DV is available only in HAM mode; the app and the pack LED show DV sync state. |
+| D3 | Codec2 is LGPL 2.1: the firmware must allow relinking (shipped as a separately updatable object / documented build), see docs/14. |
+
 ## 1.3 Power and USB-C
 
 | ID | Requirement | Rationale / acceptance |
@@ -46,8 +76,8 @@ IDs are stable; later documents refer to them. "Shall" = required for v1,
 | ID | Requirement | Rationale / acceptance |
 |----|-------------|------------------------|
 | U1 | Shall enumerate as a USB 2.0 full-speed device with a vendor-specific interface carrying the MRP protocol (docs/06). | Works with Android USB Host API, Linux, Windows (WinUSB), macOS. |
-| U2 | Shall stream 16 kHz, 16-bit mono PCM in both directions with end-to-end latency < 60 ms. | Natural PTT conversation. |
-| U3 | Should optionally enumerate a USB Audio Class 1.0 headset profile on command, for hosts without a native app (iOS). | Voice without MRP; controls then on the pack. |
+| U2 | Shall stream 16 kHz, 16-bit mono PCM in both directions with end-to-end latency < 60 ms (app profile); hardware samples at 48 kHz and firmware resamples. | Natural PTT conversation; R15. |
+| U3 | Shall offer a second USB profile ("sound-card" / Digirig-compatible): USB Audio Class 2.0 48 kHz mono in/out plus a CDC-ACM port whose RTS (or DTR) keys PTT. Selected by the app, a long button press or a stored setting; the default profile is "app". | iOS voice, and every PC/phone digital-mode program (Direwolf, FreeDV, SSTV, VARA FM) works unchanged. |
 | U4 | Shall report battery state, charging state, PD contract, RSSI, squelch state, PTT state and faults at >= 1 Hz. | App UI. |
 | U5 | Shall accept channel, CTCSS/DCS, squelch, power level, volume, filter and charging policy settings. | App UI. |
 | U6 | Shall not require a driver on Android or a kernel module on Linux. | Plug and play. |
@@ -65,6 +95,8 @@ IDs are stable; later documents refer to them. "Shall" = required for v1,
 
 ## 1.6 Out of scope for v1
 
-- Digital voice (dPMR446 / DMR446), repeaters, higher power, other bands.
-- Bluetooth or Wi-Fi links to the phone (USB only; no extra radios near the receiver).
+- Standards-based digital PMR446 (dPMR446 / DMR446: licensed AMBE vocoder), repeaters, higher power, other bands.
+- Bluetooth or Wi-Fi links to the phone (USB only).
+- Meshtastic protocol stack (routing, encryption, protobufs): only its radio settings are provided as a preset.
+- 9600 Bd / M17 / POCSAG: software additions later; hardware keeps the path (R15).
 - Qi wireless charging (coil area and EMI conflict with the antenna and receiver).

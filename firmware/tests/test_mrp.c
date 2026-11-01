@@ -80,7 +80,8 @@ int main(void)
     mrp_status_t st = { .flags = MRP_ST_PTT | MRP_ST_SOURCING, .rssi_dbm = -101, .channel = 16,
                         .batt_mv = 7612, .batt_ma = -850, .soc_pct = 77, .temp_c = -5,
                         .vbus_mv = 9000, .vbus_ma = 1500, .pd_role = MRP_PD_SOURCE,
-                        .pd_mv = 9000, .pd_ma = 2000, .tx_remaining_s = 179 };
+                        .pd_mv = 9000, .pd_ma = 2000, .tx_remaining_s = 179,
+                        .mode = 1, .profile = 0, .dv_flags = 3, .lora_flags = 0x05, .freq_hz = 433500000u };
     uint8_t sb[MRP_STATUS_LEN];
     CHECK_EQ(mrp_pack_status(&st, sb), MRP_STATUS_LEN);
     mrp_status_t st2;
@@ -88,6 +89,40 @@ int main(void)
     CHECK(!mrp_unpack_status(sb, MRP_STATUS_LEN - 1, &st2));
     CHECK_EQ(st2.rssi_dbm, -101); CHECK_EQ(st2.batt_ma, -850); CHECK_EQ(st2.temp_c, -5);
     CHECK_EQ(st2.vbus_ma, 1500); CHECK_EQ(st2.tx_remaining_s, 179); CHECK_EQ(st2.flags, st.flags);
+    CHECK_EQ(st2.mode, 1); CHECK_EQ(st2.dv_flags, 3); CHECK_EQ(st2.lora_flags, 5); CHECK_EQ(st2.freq_hz, 433500000u);
+
+    /* new payloads round trip */
+    mrp_set_freq_t fq = { 433500000u, 4, 1, 0, 12, 0 }, fq2;
+    uint8_t fb[MRP_SET_FREQ_LEN];
+    CHECK_EQ(mrp_pack_set_freq(&fq, fb), MRP_SET_FREQ_LEN);
+    CHECK(mrp_unpack_set_freq(fb, MRP_SET_FREQ_LEN, &fq2)); CHECK_EQ(fq2.hz, 433500000u); CHECK_EQ(fq2.ctcss_rx, 12);
+    mrp_set_identity_t id = { .callsign = "SQ6EMM", .ssid = 7, .nickname = "SKI-7" }, id2;
+    uint8_t idb[MRP_SET_IDENTITY_LEN];
+    CHECK_EQ(mrp_pack_set_identity(&id, idb), MRP_SET_IDENTITY_LEN);
+    CHECK(mrp_unpack_set_identity(idb, MRP_SET_IDENTITY_LEN, &id2)); CHECK_STR(id2.callsign, "SQ6EMM"); CHECK_STR(id2.nickname, "SKI-7"); CHECK_EQ(id2.ssid, 7);
+    mrp_set_beacon_t bc = { .enabled = 1, .smart = 1, .interval_s = 600, .sym_table = '/', .sym_code = '[',
+                            .transport = 3, .path = "WIDE1-1", .comment = "mobile-radio" }, bc2;
+    uint8_t bcb[MRP_SET_BEACON_LEN];
+    CHECK_EQ(mrp_pack_set_beacon(&bc, bcb), MRP_SET_BEACON_LEN);
+    CHECK(mrp_unpack_set_beacon(bcb, MRP_SET_BEACON_LEN, &bc2)); CHECK_STR(bc2.path, "WIDE1-1"); CHECK_EQ(bc2.sym_code, '['); CHECK_EQ(bc2.interval_s, 600);
+    mrp_position_t po = { 511083333, 170375000, -12, 45, -1, 1 }, po2;
+    uint8_t pob[MRP_POSITION_LEN];
+    CHECK_EQ(mrp_pack_position(&po, pob), MRP_POSITION_LEN);
+    CHECK(mrp_unpack_position(pob, MRP_POSITION_LEN, &po2)); CHECK_EQ(po2.lat_e7, 511083333); CHECK_EQ(po2.alt_m, -12); CHECK_EQ(po2.course_deg, -1);
+    mrp_lora_config_t lc = { 0, 1, 433775000u, 12, 4, 1, 22, 0x1424, 0 }, lc2;
+    uint8_t lcb[MRP_LORA_CONFIG_LEN];
+    CHECK_EQ(mrp_pack_lora_config(&lc, lcb), MRP_LORA_CONFIG_LEN);
+    CHECK(mrp_unpack_lora_config(lcb, MRP_LORA_CONFIG_LEN, &lc2)); CHECK_EQ(lc2.freq_hz, 433775000u); CHECK_EQ(lc2.sync_word, 0x1424); CHECK_EQ(lc2.power_dbm, 22);
+    uint8_t mb[128]; uint8_t tr; char to[11], text[68];
+    size_t ml = mrp_pack_send_msg(mb, sizeof mb, MRP_TR_LORA433, "SP6ABC-9", "see you at 18");
+    CHECK_EQ(ml, MRP_SEND_MSG_HDR + 13);
+    CHECK(mrp_unpack_send_msg(mb, (uint16_t)ml, &tr, to, text)); CHECK_EQ(tr, 1); CHECK_STR(to, "SP6ABC-9"); CHECK_STR(text, "see you at 18");
+    CHECK_EQ(mrp_pack_send_msg(mb, sizeof mb, 0, "X", ""), 0);
+    CHECK(!mrp_unpack_send_msg(mb, MRP_SEND_MSG_HDR, &tr, to, text));
+    CHECK_EQ(mrp_pack_msg_rx(mb, sizeof mb, 0, "SP6ABC", "12", "hi"), MRP_MSG_RX_HDR + 2);
+    CHECK_EQ(mrp_pack_lora_rx(mb, sizeof mb, 1, -97, -5, (const uint8_t *)"abc", 3), MRP_LORA_RX_HDR + 3);
+    CHECK_EQ(mb[1], (uint8_t)(-97 & 0xFF)); CHECK_EQ(mb[3], (uint8_t)-5);
+    CHECK_EQ(mrp_pack_aprs_rx(mb, sizeof mb, 0, "SQ6EMM-7", 1, 511083333, 170375000, -1, 0, "hello"), MRP_APRS_RX_HDR + 5);
 
     mrp_info_t in = { .proto = 1, .fw_major = 0, .fw_minor = 1, .hw_rev = 1, .caps = 0xDEADBEEF,
                       .serial = "MR-0001", .region = 0, .n_channels = 16 };

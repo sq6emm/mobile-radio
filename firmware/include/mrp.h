@@ -50,15 +50,32 @@ enum mrp_type {
     MRP_DATA_TX     = 0x06,   /* short text/data packet to send over the air (AFSK) */
     MRP_GET_STATUS  = 0x07,
     MRP_KEEPALIVE   = 0x08,   /* must arrive at least every 2 s while PTT is held */
+    MRP_SET_MODE    = 0x09,   /* PMR446 / HAM */
+    MRP_SET_FREQ    = 0x0A,   /* HAM mode: arbitrary frequency in band */
+    MRP_SET_IDENTITY= 0x0B,   /* callsign-SSID (unlocks HAM) and nickname */
+    MRP_SET_BEACON  = 0x0C,
+    MRP_POSITION    = 0x0D,   /* phone GNSS fix */
+    MRP_SEND_MSG    = 0x0E,
+    MRP_SET_PROFILE = 0x0F,   /* 0 app, 1 sound-card (re-enumerates) */
     MRP_AUDIO_TX    = 0x10,   /* PCM from phone mic -> transmitter */
+    MRP_LORA_CONFIG = 0x11,
+    MRP_LORA_TX     = 0x12,   /* raw LoRa payload */
+    MRP_SET_DV      = 0x13,   /* FreeDV 2400B on/off (HAM only) */
     /* device -> host */
     MRP_NAK         = 0x7F,
     MRP_INFO        = 0x81,
     MRP_ACK         = 0x82,
     MRP_AUDIO_RX    = 0x90,   /* PCM from receiver -> phone speaker */
     MRP_STATUS      = 0x91,
-    MRP_DATA_RX     = 0x92,
+    MRP_DATA_RX     = 0x92,   /* raw AX.25 frame as received (for logging apps) */
+    MRP_MSG_RX      = 0x93,
+    MRP_MSG_STATUS  = 0x94,
+    MRP_LORA_RX     = 0x95,
+    MRP_APRS_RX     = 0x96,   /* decoded position/status from another station */
 };
+
+enum mrp_transport { MRP_TR_FM = 0, MRP_TR_LORA433 = 1, MRP_TR_LORA868 = 2 };
+enum mrp_profile   { MRP_PROFILE_APP = 0, MRP_PROFILE_SOUNDCARD = 1 };
 
 /* ----- payloads (wire sizes given; packed/unpacked by helpers below) ----- */
 
@@ -128,7 +145,7 @@ typedef struct {
 #define MRP_CAP_PD_SNK  (1u << 3)
 #define MRP_CAP_UAC     (1u << 4)   /* can re-enumerate with a USB Audio Class profile */
 
-#define MRP_STATUS_LEN 21
+#define MRP_STATUS_LEN 29
 typedef struct {
     uint16_t flags;          /* MRP_ST_* */
     int8_t   rssi_dbm;
@@ -142,6 +159,11 @@ typedef struct {
     uint8_t  pd_role;        /* MRP_PD_* */
     uint16_t pd_mv, pd_ma;   /* negotiated contract */
     uint16_t tx_remaining_s; /* time left before transmit time-out */
+    uint8_t  mode;           /* 0 PMR446, 1 HAM */
+    uint8_t  profile;        /* mrp_profile */
+    uint8_t  dv_flags;       /* bit0 DV enabled, bit1 DV sync */
+    uint8_t  lora_flags;     /* bit0 433 listening, bit1 433 TX, bit2 868 listening, bit3 868 TX */
+    uint32_t freq_hz;        /* current FM frequency */
 } mrp_status_t;
 #define MRP_ST_PTT        (1u << 0)
 #define MRP_ST_SQ_OPEN    (1u << 1)
@@ -155,6 +177,82 @@ typedef struct {
 #define MRP_PD_DFP        (1u << 1)
 #define MRP_PD_CONTRACT   (1u << 2)
 #define MRP_PD_PARTNER_DRP (1u << 3)
+
+#define MRP_SET_MODE_LEN 1
+#define MRP_SET_PROFILE_LEN 1
+#define MRP_SET_DV_LEN 1
+
+#define MRP_SET_FREQ_LEN 9
+typedef struct {
+    uint32_t hz;
+    uint8_t  squelch, power, ctcss_tx, ctcss_rx, bandwidth;
+} mrp_set_freq_t;
+
+#define MRP_SET_IDENTITY_LEN 17
+typedef struct {
+    char    callsign[8];     /* NUL padded, "" = keep */
+    uint8_t ssid;
+    char    nickname[8];     /* NUL padded, "" = keep */
+} mrp_set_identity_t;
+
+#define MRP_SET_BEACON_LEN 55
+typedef struct {
+    uint8_t  enabled, smart;
+    uint16_t interval_s;
+    char     sym_table, sym_code;
+    uint8_t  transport;      /* mrp_transport, 3 = FM + LoRa433 */
+    char     path[16];
+    char     comment[32];
+} mrp_set_beacon_t;
+
+#define MRP_POSITION_LEN 15
+typedef struct {
+    int32_t  lat_e7, lon_e7;
+    int16_t  alt_m;
+    uint16_t speed_kmh;
+    int16_t  course_deg;     /* -1 = unknown */
+    uint8_t  valid;
+} mrp_position_t;
+
+#define MRP_SEND_MSG_HDR 11      /* transport u8, to char[10], then text */
+#define MRP_MSG_RX_HDR   17      /* transport u8, from char[10], id char[6], then text */
+#define MRP_MSG_STATUS_LEN 3
+typedef struct { uint16_t id; uint8_t state; } mrp_msg_status_t;
+
+#define MRP_LORA_CONFIG_LEN 13
+typedef struct {
+    uint8_t  radio;          /* 0 = 433, 1 = 868 */
+    uint8_t  preset;         /* 0 custom, 1 aprs433, 2 meshtastic868 phy, 3 pack433, 4 pack868 */
+    uint32_t freq_hz;
+    uint8_t  sf, bw, cr;
+    int8_t   power_dbm;
+    uint16_t sync_word;
+    uint8_t  rx_pref;        /* 0 FM, 1 LoRa433 (antenna preference when idle) */
+} mrp_lora_config_t;
+
+#define MRP_LORA_RX_HDR 4        /* radio u8, rssi i16, snr i8, then payload */
+#define MRP_APRS_RX_HDR 24       /* transport u8, src char[10], kind u8, lat_e7 i32, lon_e7 i32, course i16, speed u16, then text */
+
+size_t mrp_pack_set_freq(const mrp_set_freq_t *m, uint8_t *buf);
+size_t mrp_pack_set_identity(const mrp_set_identity_t *m, uint8_t *buf);
+size_t mrp_pack_set_beacon(const mrp_set_beacon_t *m, uint8_t *buf);
+size_t mrp_pack_position(const mrp_position_t *m, uint8_t *buf);
+size_t mrp_pack_msg_status(const mrp_msg_status_t *m, uint8_t *buf);
+size_t mrp_pack_lora_config(const mrp_lora_config_t *m, uint8_t *buf);
+bool mrp_unpack_set_freq(const uint8_t *buf, uint16_t len, mrp_set_freq_t *m);
+bool mrp_unpack_set_identity(const uint8_t *buf, uint16_t len, mrp_set_identity_t *m);
+bool mrp_unpack_set_beacon(const uint8_t *buf, uint16_t len, mrp_set_beacon_t *m);
+bool mrp_unpack_position(const uint8_t *buf, uint16_t len, mrp_position_t *m);
+bool mrp_unpack_msg_status(const uint8_t *buf, uint16_t len, mrp_msg_status_t *m);
+bool mrp_unpack_lora_config(const uint8_t *buf, uint16_t len, mrp_lora_config_t *m);
+
+/* variable-length helpers; return total length or 0 */
+size_t mrp_pack_send_msg(uint8_t *buf, size_t cap, uint8_t transport, const char *to, const char *text);
+bool   mrp_unpack_send_msg(const uint8_t *buf, uint16_t len, uint8_t *transport, char to[11], char text[68]);
+size_t mrp_pack_msg_rx(uint8_t *buf, size_t cap, uint8_t transport, const char *from, const char *id, const char *text);
+size_t mrp_pack_lora_rx(uint8_t *buf, size_t cap, uint8_t radio, int16_t rssi, int8_t snr, const uint8_t *pl, size_t n);
+size_t mrp_pack_aprs_rx(uint8_t *buf, size_t cap, uint8_t transport, const char *src, uint8_t kind,
+                        int32_t lat_e7, int32_t lon_e7, int16_t course, uint16_t speed, const char *text);
 
 /* ----- CRC and framing ----- */
 uint16_t mrp_crc16(const uint8_t *data, size_t len, uint16_t crc);

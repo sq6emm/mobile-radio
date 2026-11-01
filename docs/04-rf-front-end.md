@@ -16,15 +16,25 @@ SA818U-V4 (NiceRF) or DRA818U (Dorji), 400-480 MHz FM transceiver module:
 | Audio | MIC_IN (electret level), AF_OUT (line level, needs amplifier), built-in pre/de-emphasis, 300 Hz HPF, 3 kHz LPF, CTCSS/DCS |
 | Antenna port | 50 ohm pin, internal T/R switch and basic harmonic filter |
 
-The module is a complete radio; everything in this chapter is about making
-its single antenna pin legal, clean and robust next to a phone.
+The module is a complete radio and covers both operating modes (PMR446 at
+446 MHz and the 70 cm amateur band 430-440 MHz); everything in this chapter
+is about making its single antenna pin legal, clean and robust next to a
+phone, and about sharing the antenna with the 433 MHz LoRa module.
 
 ## 4.2 Signal chain
 
 ```
-SA818 ANT -> C_dc -> [LPF: C1 L2 C3 L4 C5 L6 C7] -> [BPF 2-pole, optional] ->
-  [RF test switch MM8130] -> [match: shunt L / series C / shunt C pads] -> [ESD] -> antenna feed
+SA818 ANT -> C_dc -> [LPF: C1 L2 C3 L4 C5 L6 C7] --\
+                                                     [SPDT PE4259] -> [BPF 2-pole 439 MHz, 50 MHz wide] ->
+LoRa 433 module ANT -> [shunt PIN limiter pad] ----/      [RF test switch MM8130] -> [match] -> [ESD] -> helix
+
+LoRa 868 module ANT -> [10 pF series, shunt L pad] -> printed IFA (own antenna)
 ```
+
+The FM path and the 433 MHz LoRa module share the helix through the switch;
+the arbiter (`firmware/src/arbiter.c`) points it at whoever transmits, and
+at the preferred receiver otherwise (FM by default). The 868 MHz LoRa module
+is fully independent (docs/13).
 
 - 50 ohm coplanar waveguide with ground, 0.3 mm wide / 0.2 mm gap on 0.2 mm
   prepreg to L2 (adjust to stack-up), ground vias every 2 mm along the line.
@@ -74,7 +84,7 @@ Module 2nd harmonic typically -40 to -50 dBc, 3rd -50 to -60 dBc. After the
 LPF both are below -90 dBc, limited in practice by shielding and layout
 (~ -70 to -80 dBc). Margin > 10 dB.
 
-## 4.4 Optional band-pass filter (receiver selectivity)
+## 4.4 Band-pass filter (receiver selectivity), 439 MHz
 
 Purpose: the attached phone transmits up to +23 dBm at 700-960 MHz and
 1.7-2.7 GHz, 1-3 cm from the pack antenna. Coupling of -20 to -30 dB puts
@@ -83,18 +93,22 @@ which is near the module's blocking limit (R7). A 446 MHz band-pass adds
 30 dB where it matters, and also attenuates TETRA (380 MHz) and LPD/ISM 433 MHz
 traffic that the LPF passes unfiltered.
 
-Design from the script: 2-pole Butterworth, capacitively coupled shunt
-resonators, f0 = 446.1 MHz, BW = 40 MHz, L = 12 nH:
+With the 70 cm amateur mode and LoRa-APRS at 433.775 MHz the filter must
+pass 430-446.2 MHz, so it is centred at 439 MHz and widened to 50 MHz
+(`filter_design.py --bpf-f0 439e6 --bpf-bw 50e6`): 2-pole Butterworth,
+capacitively coupled shunt resonators, L = 12 nH:
 
 | Element | Value |
 |---------|-------|
-| C_end (in/out, series) | 2.3 pF |
-| C_couple | 0.72 pF |
-| C_res (each resonator, shunt) | 7.8 pF (+ 2.2-3.3 pF trimmer range on the pads) |
+| C_end (in/out, series) | 2.7 pF |
+| C_couple | 0.95 pF |
+| C_res (each resonator, shunt) | 7.3 pF (+ 2.2-3.3 pF trimmer range on the pads) |
 | L_res | 12 nH, Q >= 120 (air-core 4 turns 1 mm wire on 3 mm, or ceramic coax resonator) |
 
-Insertion loss 1.1 dB at Q_u = 120, 0.5 dB with a dielectric (coaxial ceramic)
-2-pole filter; rejection -30 dB at 703 MHz, -24 dB at 380 MHz, 1.7 dB at 433.9 MHz.
+Simulated (Q_u = 120): 1.4 dB at 446.1 MHz, 1.2 dB at 433.9 MHz, -18 dB at
+380 MHz (TETRA), -26 dB at 703 MHz, -29 dB at 900 MHz; with the LPF in
+cascade the cellular bands are below -60 dB. A dielectric 2-pole filter
+brings the loss to ~0.6 dB.
 
 Caveats that decide the stuffing option:
 
@@ -115,7 +129,10 @@ Threats to the -120 dBm receiver:
 
 | Source | Mechanism | Mitigation |
 |--------|-----------|------------|
-| Phone cellular TX 700-960 MHz, +23 dBm | front-end blocking, reciprocal mixing | LPF (35-50 dB), BPF option, antenna at the pack top edge away from the phone's antennas (usually bottom and top edges: keep the pack antenna off-centre, top-left) |
+| Phone cellular TX 700-960 MHz, +23 dBm | front-end blocking, reciprocal mixing | LPF (35-50 dB), BPF (26-29 dB), antenna at the pack top edge away from the phone's antennas (usually bottom and top edges: keep the pack antenna off-centre, top-left) |
+| LoRa 868 TX (+22 dBm) 30 mm from the helix | 869 MHz is 1.98 x 439 MHz: just below the FM receiver's 2nd harmonic image; direct blocking | LPF + BPF give > 60 dB at 869 MHz; the 868 module's own harmonic filter; firmware may blank FM audio for the 0.3-1 s burst if T-L3 shows a click |
+| FM TX 1 W into the LoRa 433 input through the SPDT | 25 dB switch isolation leaves ~+5 dBm at the SX1262 (abs. max +10 dBm) | LoRa 433 in standby during FM TX; shunt PIN limiter footprint; T-L2 |
+| LoRa 433 TX (+22 dBm) | into the SA818 through the switch's off port: -3 dBm | SA818 input tolerates it (handhelds see this from nearby radios); FM audio muted while LoRa 433 owns the antenna anyway |
 | Phone 1.7-2.7 GHz, 3.5 GHz, Wi-Fi, BT | out-of-band blocking, PA harmonics landing in band? (none of 446 MHz x n falls in these; the reverse, phone TX / n, does not land on 446 either) | LPF > 70 dB; metal can over the module |
 | Phone display/CPU broadband noise, Qi coil | near-field pickup by the pack antenna and PCB traces | full ground plane facing the phone, shield cans, antenna on the far edge |
 | Pack buck converters (750 kHz, 2.5 MHz) | harmonics at 446 MHz (harmonic #595 / #178) and conducted ripple into the module supply | forced PWM, tiny switch loops, LC post filter, ferrite bead + 100 uF at the module, spread spectrum off during RX |

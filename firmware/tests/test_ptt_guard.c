@@ -56,5 +56,17 @@ int main(void)
     CHECK_EQ(ptt_guard_request(&g, PTT_SRC_LOCAL, true, 400200), PTT_KEYED);
     CHECK_EQ(ptt_guard_request(&g, PTT_SRC_LOCAL, false, 400300), PTT_KEYED);
     CHECK_EQ(ptt_guard_request(&g, PTT_SRC_HOST, false, 400400), PTT_IDLE);
+
+    /* data source: keyed when free, refused while voice is keyed, pre-empted by voice */
+    g.cfg.busy_lockout = false;
+    CHECK_EQ(ptt_guard_request(&g, PTT_SRC_DATA, true, 500000), PTT_KEYED);
+    CHECK(ptt_guard_tick(&g, 500000 + 5000));                     /* no keep-alive needed for data */
+    CHECK_EQ(ptt_guard_request(&g, PTT_SRC_LOCAL, true, 500000 + 6000), PTT_KEYED);
+    CHECK_EQ(g.source, PTT_SRC_LOCAL);                             /* voice took over */
+    CHECK_EQ(ptt_guard_request(&g, PTT_SRC_DATA, true, 500000 + 6100), PTT_DENIED_BUSY);
+    CHECK_EQ(ptt_guard_request(&g, PTT_SRC_DATA, false, 500000 + 6200), PTT_KEYED); /* data release ignored */
+    CHECK_EQ(ptt_guard_request(&g, PTT_SRC_LOCAL, false, 500000 + 7000), PTT_IDLE);
+    CHECK_EQ(ptt_guard_request(&g, PTT_SRC_DATA, true, 500000 + 8000), PTT_KEYED);
+    CHECK_EQ(ptt_guard_request(&g, PTT_SRC_DATA, false, 500000 + 9000), PTT_IDLE);
     TEST_END();
 }

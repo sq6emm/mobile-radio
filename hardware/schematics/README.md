@@ -9,6 +9,7 @@ datasheets; **VERIFY** against the exact revision before layout.
 | 2 | `sheet2-rails-mcu.md` | +4V0 buck, LDOs, STM32F405, debug, buttons, LEDs |
 | 3 | `sheet3-radio-rf.md` | SA818, control lines, LPF, BPF, test switch, match, antenna |
 | 4 | `sheet4-audio.md` | buffers, filters, speaker amp, microphone |
+| 5 | `sheet5-lora.md` | two SX1262 modules, SPI, RF switch, 868 antenna |
 
 Net naming: `VBUS`, `VSYS`, `VBAT+`, `+4V0`, `+3V3D`, `+3V3A`, `GND`,
 `AGND` (joined at one point under the MCU), `RF_MOD`, `RF_LPF`, `RF_TEST`,

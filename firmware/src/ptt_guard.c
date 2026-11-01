@@ -41,8 +41,15 @@ ptt_state_t ptt_guard_request(ptt_guard_t *g, ptt_source_t src, bool key, uint32
         }
         return g->state;
     }
-    if (g->state == PTT_KEYED)
-        return PTT_KEYED;          /* already keyed by someone; local button has no priority */
+    if (g->state == PTT_KEYED) {
+        if (g->source == PTT_SRC_DATA && src != PTT_SRC_DATA) {
+            g->source = src;       /* voice pre-empts data; the data path sees source change and aborts */
+            g->keyed_at_ms = now_ms;
+            g->last_keepalive_ms = now_ms;
+            return PTT_KEYED;
+        }
+        return (src == PTT_SRC_DATA) ? PTT_DENIED_BUSY : PTT_KEYED;
+    }
     if (g->state == PTT_COOLDOWN && (int32_t)(now_ms - g->cooldown_until_ms) < 0)
         return PTT_COOLDOWN;
     if (g->inhibit) {

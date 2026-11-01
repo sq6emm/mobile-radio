@@ -48,42 +48,42 @@ GSM900 UL (900)                  -56.7      -0.1
 Wi-Fi 2.4 GHz (2450)             < -70      -0.0
 6th harmonic (2677)              < -70      -0.0
 
-RX/TX band-pass (optional): 2-pole Butterworth, f0 = 446.1 MHz, BW3dB = 40 MHz, L = 12.0 nH
-  node C (bare resonator)        : 10.61 pF
-  Qe in/out                      : 15.8 / 15.8
-  end coupling caps Ce           : 2.30 / 2.30 pF
-  coupling coefficient(s) k      : 0.0634
-  coupling cap(s) Cc             : 0.72 pF
-  resonator shunt caps (trimmed) : 7.80 pF, 7.80 pF
-  est. insertion loss @ Qu=  45  : 3.04 dB
-  est. insertion loss @ Qu= 120  : 1.14 dB
-  est. insertion loss @ Qu= 300  : 0.46 dB
+RX/TX band-pass (optional): 2-pole Butterworth, f0 = 439.0 MHz, BW3dB = 50 MHz, L = 12.0 nH
+  node C (bare resonator)        : 10.95 pF
+  Qe in/out                      : 12.4 / 12.4
+  end coupling caps Ce           : 2.70 / 2.70 pF
+  coupling coefficient(s) k      : 0.0805
+  coupling cap(s) Cc             : 0.96 pF
+  resonator shunt caps (trimmed) : 7.62 pF, 7.62 pF
+  est. insertion loss @ Qu=  45  : 2.40 dB
+  est. insertion loss @ Qu= 120  : 0.90 dB
+  est. insertion loss @ Qu= 300  : 0.36 dB
 
 BPF alone (Qu = 120)
 --------------------
 frequency                     S21 [dB]  S11 [dB]
-PMR446 ch1 (446.006)              -1.6     -25.0
-PMR446 ch16 (446.194)             -1.6     -24.8
-TETRA uplink (380)               -24.4      -0.2
-LPD433 / ISM (433.92)             -1.7     -22.2
-LTE B28 UL (703)                 -30.2      -0.0
-LTE B20 UL (832)                 -32.5      -0.0
-2nd harmonic (892.2)             -33.1      -0.0
-GSM900 UL (900)                  -33.2      -0.0
-3rd harmonic (1338)              -36.3      -0.0
-4th harmonic (1784)              -40.5      -0.0
-5th harmonic (2230)              -48.3      -0.0
-Wi-Fi 2.4 GHz (2450)             -55.2      -0.0
-6th harmonic (2677)              -69.0      -0.0
+PMR446 ch1 (446.006)              -1.4     -17.6
+PMR446 ch16 (446.194)             -1.4     -17.2
+TETRA uplink (380)               -17.7      -0.3
+LPD433 / ISM (433.92)             -1.2     -22.0
+LTE B28 UL (703)                 -26.1      -0.1
+LTE B20 UL (832)                 -28.3      -0.0
+2nd harmonic (892.2)             -29.0      -0.0
+GSM900 UL (900)                  -29.1      -0.0
+3rd harmonic (1338)              -32.4      -0.0
+4th harmonic (1784)              -36.7      -0.0
+5th harmonic (2230)              -44.2      -0.0
+Wi-Fi 2.4 GHz (2450)             -50.6      -0.0
+6th harmonic (2677)              -62.7      -0.0
 
 LPF(E24) + BPF cascade
 ----------------------
 frequency                     S21 [dB]  S11 [dB]
-PMR446 ch1 (446.006)              -2.3     -19.4
-PMR446 ch16 (446.194)             -2.3     -19.6
-TETRA uplink (380)               -25.3      -1.3
-LPD433 / ISM (433.92)             -2.5     -14.4
-LTE B28 UL (703)                 < -70      -0.2
+PMR446 ch1 (446.006)              -2.0     -23.2
+PMR446 ch16 (446.194)             -2.0     -23.4
+TETRA uplink (380)               -18.5      -1.5
+LPD433 / ISM (433.92)             -1.9     -18.0
+LTE B28 UL (703)                 -66.0      -0.2
 LTE B20 UL (832)                 < -70      -0.1
 2nd harmonic (892.2)             < -70      -0.1
 GSM900 UL (900)                  < -70      -0.1
@@ -95,5 +95,5 @@ Wi-Fi 2.4 GHz (2450)             < -70      -0.0
 
 Stop-band values below -70 dB are shown as a floor: on a real PCB, coupling around the filter (ground return, pad-to-pad, shield gaps) limits isolation to roughly that level.
 
-TX current: 141 mA RMS in the 50-ohm line at 1 W; resonator circulating current ~ Q_L x that = 1577 mA RMS (Q_L = 11.2). Use air-core or coaxial ceramic resonators, not 0603 chips.
+TX current: 141 mA RMS in the 50-ohm line at 1 W; resonator circulating current ~ Q_L x that = 1242 mA RMS (Q_L = 8.8). Use air-core or coaxial ceramic resonators, not 0603 chips.
 ```

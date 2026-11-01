@@ -2,11 +2,14 @@
 
 Constraints: PMR446 requires an integral antenna (no user connector), ERP
 <= 500 mW, vertical polarisation in use (M2), and the antenna sits on a pack
-that is stuck to a phone with a magnet ring. Numbers below come from
+that is stuck to a phone with a magnet ring. The same helix now also serves
+the 70 cm amateur mode (430-440 MHz) and the 433 MHz LoRa module, so it is
+tuned to **439 MHz**, the geometric centre of 432.5 and 446.1 MHz. A second,
+printed antenna serves the 868 MHz LoRa module. Numbers below come from
 `hardware/rf/antenna_calc.py report` (output saved in
 `hardware/rf/results/antenna_report.txt`).
 
-Wavelength at 446.1 MHz: 672 mm; lambda/4 = 168 mm. Nothing phone-sized is
+Wavelength at 439 MHz: 683 mm; lambda/4 = 171 mm. Nothing phone-sized is
 resonant without loading, so every option is electrically short.
 
 ## 5.1 Options
@@ -26,13 +29,19 @@ lambda/4 long, which helps: the chassis is half of the radiator). The helix
 axis stays vertical when the phone is portrait; in landscape the polarisation
 loss to other handhelds is 10-20 dB, same as any handheld laid down.
 
-## 5.2 Helix starting dimensions
+## 5.2 Helix starting dimensions (439 MHz)
 
 | Diameter | Axial length | Wire length | Pitch | Turns |
 |----------|--------------|-------------|-------|-------|
-| 6 mm | 60 mm | ~302 mm (0.45 lambda) | 3.8 mm | 15.7 |
-| 8 mm | 50 mm | ~302 mm | 4.2 mm | 11.9 |
-| 5 mm | 80 mm | ~302 mm | 4.3 mm | 18.6 |
+| 6 mm | 60 mm | ~307 mm (0.45 lambda) | 3.75 mm | 16.0 |
+| 8 mm | 50 mm | ~307 mm | 4.1 mm | 12.1 |
+| 5 mm | 80 mm | ~307 mm | 4.2 mm | 18.9 |
+
+Bandwidth: a 60 mm helix on this ground plane has a VSWR < 2 bandwidth of
+roughly 15-20 MHz. Centred at 439 MHz that covers 432-446 MHz at VSWR <= 2
+(about 0.5 dB mismatch loss at either edge). If the measured bandwidth is
+narrower, the compromise is to favour 446 (the certified mode) and accept
+~1 dB at 432.5 MHz; a longer (80 mm) or thicker helix widens the band.
 
 Wire: 1.0 mm phosphor bronze or stainless spring wire on a nylon former,
 soldered to a brass base insert that is screwed and soldered to the PCB. The
@@ -58,6 +67,18 @@ Use the low-pass form (series L, shunt C) because it adds harmonic rejection.
 - The magnet ring (steel/NdFeB, ~56 mm diameter) is a large conductor in the
   near field: keep the element >= 20 mm away from it.
 
+## 5.3b 868 MHz printed inverted-F (LoRa 868)
+
+lambda/4 at 869.5 MHz is 86 mm, so a printed IFA fits comfortably in a
+40 x 8 mm keep-out at the top-right corner (`antenna_calc.py ifa --f 869e6
+--width 40 --height 8`: ~78 mm conductor, 5 meanders at 8 mm pitch). Feed via
+a series 10 pF pad and a shunt inductor pad for tuning; shorting pin 4 mm
+from the feed. Keep it >= 30 mm from the helix base and >= 20 mm from the
+magnet ring; expected gain -3 to -5 dBi on the phone. ERP at +22 dBm
+conducted is then ~60-80 mW, far below the 500 mW allowed in 869.4-869.65
+MHz; the firmware's power cap for the 868 band is therefore not antenna
+critical.
+
 ## 5.4 ERP budget and power level selection
 
 ERP = P_conducted - front-end loss + antenna gain (dBd). Front-end loss is
@@ -70,9 +91,11 @@ ERP = P_conducted - front-end loss + antenna gain (dBd). Front-end loss is
 
 The production test measures ERP (or antenna gain by substitution) and
 stores the allowed power level per unit (`ANTENNA_GAIN_DBD_X10` in
-`app_main.c`, later a calibration record). The firmware refuses the H
-setting when the stored gain would put ERP above 26.5 dBm (0.45 W, 0.5 dB
-margin for temperature and supply). R2 is thereby met by construction.
+`app_main.c`, later a calibration record). In PMR446 mode the firmware
+refuses the H setting when the stored gain would put ERP above 26.5 dBm
+(0.45 W, 0.5 dB margin for temperature and supply); in HAM mode 1 W is always
+allowed (`bandplan_high_power_allowed`). R2 is thereby met by construction.
+The same stored gain caps the 433 MHz LoRa power at 10 mW ERP in PMR/ISM mode.
 
 ## 5.5 Range expectation
 
